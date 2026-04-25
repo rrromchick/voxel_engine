@@ -21,7 +21,7 @@ unsigned int texture_from_file(
 	bool gamma = false);
 
 struct Model {
-	std::vector<Texture> textures_loaded;
+	std::vector<texture> textures_loaded;
 	std::vector<Mesh> meshes;
 	std::string directory;
 	bool gamma_correction;
@@ -66,24 +66,24 @@ private:
 	}
 
 	Mesh process_mesh(aiMesh *mesh, const aiScene *scene) {
-		std::vector<Vertex> vertices;
+		std::vector<vertex> vertices;
 		std::vector<uint> indices;
-		std::vector<Texture> textures;
+		std::vector<texture> textures;
 
 		for (unsigned int i = 0; i < mesh->mNumVertices; i++) {
-			Vertex vertex;
+			vertex vert;
 			glm::vec3 vector;
 
 			vector.x = mesh->mVertices[i].x;
 			vector.y = mesh->mVertices[i].y;
 			vector.z = mesh->mVertices[i].z;
-			vertex.position = vector;
+			vert.position = vector;
 
 			if (mesh->HasNormals()) {
 				vector.x = mesh->mNormals[i].x;
 				vector.y = mesh->mNormals[i].y;
 				vector.z = mesh->mNormals[i].z;
-				vertex.normal = vector;
+				vert.normal = vector;
 			}
 
 			if (mesh->mTextureCoords[0]) {
@@ -91,22 +91,22 @@ private:
 
 				vec.x = mesh->mTextureCoords[0][i].x;
 				vec.y = mesh->mTextureCoords[0][i].y;
-				vertex.tex_coords = vec;
+				vert.tex_coords = vec;
 
 				vector.x = mesh->mTangents[i].x;
 				vector.y = mesh->mTangents[i].y;
 				vector.z = mesh->mTangents[i].z;
-				vertex.tangent = vector;
+				vert.tangent = vector;
 
 				vector.x = mesh->mBitangents[i].x;
 				vector.y = mesh->mBitangents[i].y;
 				vector.z = mesh->mBitangents[i].z;
-				vertex.bitangent = vector;
+				vert.bitangent = vector;
 			} else {
-				vertex.tex_coords = glm::vec2(0.0f, 0.0f);
+				vert.tex_coords = glm::vec2(0.0f, 0.0f);
 			}
 
-			vertices.push_back(vertex);
+			vertices.push_back(vert);
 		}
 
 		for (uint i = 0; i < mesh->mNumFaces; i++) {
@@ -119,30 +119,30 @@ private:
 
 		aiMaterial *material = scene->mMaterials[mesh->mMaterialIndex];
 
-		std::vector<Texture> diffuse_maps = this->load_material_textures(
+		std::vector<texture> diffuse_maps = this->load_material_textures(
 			material, aiTextureType_DIFFUSE, "texture_diffuse");
 		textures.insert(textures.end(), diffuse_maps.begin(), diffuse_maps.end());
 
-		std::vector<Texture> specular_maps = this->load_material_textures(
+		std::vector<texture> specular_maps = this->load_material_textures(
 			material, aiTextureType_SPECULAR, "texture_specular");
 		textures.insert(textures.end(), specular_maps.begin(), specular_maps.end());
 
-		std::vector<Texture> normal_maps = this->load_material_textures(
+		std::vector<texture> normal_maps = this->load_material_textures(
 			material, aiTextureType_AMBIENT, "texture_normal");
 		textures.insert(textures.end(), normal_maps.begin(), normal_maps.end());
 	
-		std::vector<Texture> height_maps = load_material_textures(
+		std::vector<texture> height_maps = load_material_textures(
 			material, aiTextureType_AMBIENT, "texture_height");
 		textures.insert(textures.end(), height_maps.begin(), height_maps.end());
 
 		return Mesh(vertices, indices, textures);
 	}
 
-	std::vector<Texture> load_material_textures(
+	std::vector<texture> load_material_textures(
 		aiMaterial *mat,
 		aiTextureType type,
 		std::string type_name) {
-		std::vector<Texture> textures;
+		std::vector<texture> textures;
 		for (uint i = 0; i < mat->GetTextureCount(type); i++) {
 			aiString str;
 			mat->GetTexture(type, i, &str);
@@ -158,12 +158,12 @@ private:
 			}
 
 			if (!skip) {
-				Texture texture;
-				texture.id = texture_from_file(str.C_Str(), this->directory);
-				texture.type = type_name;
-				texture.path = str.C_Str();
-				textures.push_back(texture);
-				this->textures_loaded.push_back(texture);
+				texture tex;
+				tex.id = texture_from_file(str.C_Str(), this->directory);
+				tex.type = type_name;
+				tex.path = str.C_Str();
+				textures.push_back(tex);
+				this->textures_loaded.push_back(tex);
 			}
 		}
 		return textures;

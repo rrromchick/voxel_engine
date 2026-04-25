@@ -7,7 +7,7 @@
 
 #define MAX_BONE_INFLUENCE 4
 
-struct Vertex {
+struct vertex {
 	glm::vec3 position;
 	glm::vec3 normal;
 	glm::vec2 tex_coords;
@@ -18,22 +18,22 @@ struct Vertex {
 	f32 weights[MAX_BONE_INFLUENCE];
 };
 
-struct Texture {
+struct texture {
 	uint id;
 	std::string type;
 	std::string path;
 };
 
 struct Mesh {
-	std::vector<Vertex> vertices;
+	std::vector<vertex> vertices;
 	std::vector<uint> indices;
-	std::vector<Texture> textures;
+	std::vector<texture> textures;
 	GLuint vao;
 
 	Mesh(
-		std::vector<Vertex> vertices,
+		std::vector<vertex> vertices,
 		std::vector<uint> indices,
-		std::vector<Texture> textures) {
+		std::vector<texture> textures) {
 		this->vertices = std::move(vertices);
 		this->indices = std::move(indices);
 		this->textures = std::move(textures);
@@ -89,7 +89,7 @@ private:
 
 		glBufferData(
 			GL_ARRAY_BUFFER,
-			this->vertices.size() * sizeof(Vertex),
+			this->vertices.size() * sizeof(vertex),
 			&this->vertices[0], GL_STATIC_DRAW);
 
 		glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, this->ebo);
@@ -100,38 +100,38 @@ private:
 
 		glEnableVertexAttribArray(0);
 		glVertexAttribPointer(
-			0, 3, GL_FLOAT, GL_FALSE, sizeof(Vertex),
+			0, 3, GL_FLOAT, GL_FALSE, sizeof(vertex),
 			reinterpret_cast<void *>(0));
 
 		glEnableVertexAttribArray(1);
 		glVertexAttribPointer(
-			1, 3, GL_FLOAT, GL_FALSE, sizeof(Vertex),
-			reinterpret_cast<void *>(offsetof(Vertex, normal)));
+			1, 3, GL_FLOAT, GL_FALSE, sizeof(vertex),
+			reinterpret_cast<void *>(offsetof(vertex, normal)));
 
 		glEnableVertexAttribArray(2);
 		glVertexAttribPointer(
-			2, 2, GL_FLOAT, GL_FALSE, sizeof(Vertex),
-			reinterpret_cast<void *>(offsetof(Vertex, tex_coords)));
+			2, 2, GL_FLOAT, GL_FALSE, sizeof(vertex),
+			reinterpret_cast<void *>(offsetof(vertex, tex_coords)));
 
 		glEnableVertexAttribArray(3);
 		glVertexAttribPointer(
-			3, 3, GL_FLOAT, GL_FALSE, sizeof(Vertex),
-			reinterpret_cast<void *>(offsetof(Vertex, tangent)));
+			3, 3, GL_FLOAT, GL_FALSE, sizeof(vertex),
+			reinterpret_cast<void *>(offsetof(vertex, tangent)));
 
 		glEnableVertexAttribArray(4);
 		glVertexAttribPointer(
-			4, 3, GL_FLOAT, GL_FALSE, sizeof(Vertex),
-			reinterpret_cast<void *>(offsetof(Vertex, bitangent)));
+			4, 3, GL_FLOAT, GL_FALSE, sizeof(vertex),
+			reinterpret_cast<void *>(offsetof(vertex, bitangent)));
 
 		glEnableVertexAttribArray(5);
 		glVertexAttribIPointer(
-			5, 4, GL_INT, sizeof(Vertex),
-			reinterpret_cast<void *>(offsetof(Vertex, bone_ids)));
+			5, 4, GL_INT, sizeof(vertex),
+			reinterpret_cast<void *>(offsetof(vertex, bone_ids)));
 
 		glEnableVertexAttribArray(6);
 		glVertexAttribPointer(
-			6, 4, GL_FLOAT, GL_FALSE, sizeof(Vertex),
-			reinterpret_cast<void *>(offsetof(Vertex, weights)));
+			6, 4, GL_FLOAT, GL_FALSE, sizeof(vertex),
+			reinterpret_cast<void *>(offsetof(vertex, weights)));
 
 		glBindVertexArray(0);
 	}
