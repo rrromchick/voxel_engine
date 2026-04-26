@@ -1,5 +1,6 @@
 #include "player.hpp"
 #include "state.hpp"
+#include "math.hpp"
 
 EntityPlayer::EntityPlayer(World *world)
 	: world(world), camera(glm::radians(75.0f)) {}
@@ -83,9 +84,9 @@ void EntityPlayer::tick() {
 	this->camera.position = camera.position + movement;
 
 	constexpr f32 reach = 6.0f;
-	//this->has_look_block = ray_block(
-	//	Ray(this->camera.position, this->camera.direction),
-	//	reach, raycast_fn, &this->look_block, &this->look_face);
+	this->has_look_block = math::ray_block(
+		math::Ray(this->camera.position, this->camera.direction),
+		reach, raycast_block_fn, &this->look_block, &this->look_face);
 
 	if (this->has_look_block) {
 		if (state.get_wnd()->get_mouse().buttons[GLFW_MOUSE_BUTTON_LEFT].pressed_tick) {

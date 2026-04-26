@@ -87,6 +87,11 @@ struct TextureAtlas {
 		this->update_units();
 	}
 
+	TextureAtlas(const Texture &tex, glm::ivec2 sprite_size)
+		: tex(std::move(tex)), sprite_sz(sprite_size) {
+		this->update_units();
+	}
+
 	static TextureAtlas create_from_texture(Texture tex, glm::ivec2 sprite_size) {
 		TextureAtlas atlas;
 		atlas.tex = std::move(tex);
@@ -106,6 +111,14 @@ struct TextureAtlas {
 
 	inline const Texture &texture() const {
 		return this->tex;
+	}
+
+	inline glm::ivec2 sprite_size() const {
+		return this->sprite_sz;
+	}
+
+	inline glm::vec2 unit() const {
+		return this->sprite_unit;
 	}
 
 private:

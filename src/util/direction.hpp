@@ -32,7 +32,7 @@ namespace direction {
 		return static_cast<Direction>(-1);
 	}
 
-	inline glm::ivec3 dir_to_vec3(Direction &d) {
+	inline glm::ivec3 dir_to_vec3(const Direction &d) {
 		return dir_vec[d];
 	}
 }

@@ -83,6 +83,10 @@ struct World {
 		return this->chunks;
 	}
 
+	inline EntityPlayer *get_player() {
+		return &this->player;
+	}
+
 private:
 	EntityPlayer player;
 	usize chunks_size;

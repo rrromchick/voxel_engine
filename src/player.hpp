@@ -18,10 +18,6 @@ struct EntityPlayer {
 	inline void update();
 	inline void tick();
 
-private:
-	World *world;
-	Camera camera;
-
 	bool has_look_block;
 	glm::ivec3 look_block;
 	Direction look_face;
@@ -32,4 +28,12 @@ private:
 	bool offset_changed, block_pos_changed;
 
 	BlockId selected_block;
+
+	inline const Camera &get_camera() {
+		return this->camera;
+	}
+
+private:
+	World *world;
+	Camera camera;
 };

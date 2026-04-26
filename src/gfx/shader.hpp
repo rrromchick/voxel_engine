@@ -3,6 +3,7 @@
 #include <glad/glad.h>
 #include <glm/glm.hpp>
 
+#include "texture.hpp"
 #include "typedefs.hpp"
 
 #include <fstream>
@@ -64,64 +65,87 @@ struct Shader {
 		glDeleteShader(fragment);
 	}
 
-	void use() const {
+	~Shader() {}
+
+	//Shader(const Shader &other) = delete;
+	//Shader &operator=(const Shader &other) = delete;
+
+	//Shader(Shader &&other) = default;
+	//Shader &operator=(Shader &&other) {
+	//	*this = std::move(other);
+	//	return *this;
+	//}
+
+	inline void use() const {
 		glUseProgram(this->id);
 	}
 
-	void set_bool(const std::string &name, bool value) const {
+	inline void set_bool(const std::string &name, bool value) const {
 		glUniform1i(glGetUniformLocation(this->id, name.c_str()),
 			static_cast<int>(value));
 	}
 
-	void set_int(const std::string &name, int value) const {
+	inline void set_int(const std::string &name, int value) const {
 		glUniform1i(glGetUniformLocation(this->id, name.c_str()), value);
 	}
 
-	void set_float(const std::string &name, float value) const {
+	inline void set_float(const std::string &name, float value) const {
 		glUniform1f(glGetUniformLocation(this->id, name.c_str()), value);
 	}
 
-	void set_vec2(const std::string &name, const glm::vec2 &value) const {
+	inline void set_vec2(const std::string &name, const glm::vec2 &value) const {
 		glUniform2fv(glGetUniformLocation(this->id, name.c_str()), 1, &value[0]);
 	}
 
-	void set_vec2(const std::string &name, float x, float y) const {
+	inline void set_vec2(const std::string &name, float x, float y) const {
 		glUniform2f(glGetUniformLocation(this->id, name.c_str()), x, y);
 	}
 
-	void set_vec3(const std::string &name, const glm::vec3 &value) const {
+	inline void set_vec3(const std::string &name, const glm::vec3 &value) const {
 		glUniform3fv(glGetUniformLocation(this->id, name.c_str()), 1, &value[0]);
 	}
 
-	void set_vec3(const std::string &name, float x, float y, float z) const {
+	inline void set_vec3(const std::string &name, float x, float y, float z) const {
 		glUniform3f(glGetUniformLocation(this->id, name.c_str()), x, y, z);
 	}
 	
-	void set_vec4(const std::string &name, const glm::vec4 &value) const {
+	inline void set_vec4(const std::string &name, const glm::vec4 &value) const {
 		glUniform4fv(glGetUniformLocation(this->id, name.c_str()), 1, &value[0]);
 	}
 
-	void set_vec4(const std::string &name, float x, float y, float z, float w) {
+	inline void set_vec4(const std::string &name, float x, float y, float z, float w) {
 		glUniform4f(glGetUniformLocation(this->id, name.c_str()), x, y, z, w);
 	}
 
-	void set_mat2(const std::string &name, const glm::mat4 &mat) const {
+	inline void set_mat2(const std::string &name, const glm::mat4 &mat) const {
 		glUniformMatrix2fv(glGetUniformLocation(this->id, name.c_str()),
 			1, GL_FALSE, &mat[0][0]);
 	}
 
-	void set_mat3(const std::string &name, const glm::mat3 &mat) const {
+	inline void set_mat3(const std::string &name, const glm::mat3 &mat) const {
 		glUniformMatrix3fv(glGetUniformLocation(this->id, name.c_str()),
 			1, GL_FALSE, &mat[0][0]);
 	}
 
-	void set_mat4(const std::string &name, const glm::mat4 &mat) const {
+	inline void set_mat4(const std::string &name, const glm::mat4 &mat) const {
 		glUniformMatrix4fv(glGetUniformLocation(this->id, name.c_str()),
 			1, GL_FALSE, &mat[0][0]);
 	}
 
+	inline void set_camera(const Camera &camera) const {
+		this->set_mat4("p", camera.proj);
+		this->set_mat4("v", camera.view);
+	}
+
+	inline void set_texture_2d(
+		const std::string &name, const Texture &texture, GLuint n) const {
+		glActiveTexture(GL_TEXTURE0 + n);
+		texture.bind();
+		glUniform1i(glGetUniformLocation(this->id, name.c_str()), n);
+	}
+
 private:
-	void check_compile_errors(GLuint shader, std::string type) {
+	inline void check_compile_errors(GLuint shader, std::string type) {
 		GLint success;
 		GLchar info_log[1024];
 

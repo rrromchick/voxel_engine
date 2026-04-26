@@ -186,6 +186,14 @@ struct Chunk {
 
 	inline void get_bordering_chunks(glm::ivec3 pos, std::span<Chunk *, 2> dest);
 
+	inline World *get_world() {
+		return this->world;
+	}
+
+	inline glm::vec3 get_pos() const {
+		return this->position;
+	}
+
 private:
 	inline void emit_sprite(
 		Mesh *mesh, glm::vec3 position, glm::vec2 uv_offset, glm::vec2 uv_unit) const;

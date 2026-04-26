@@ -42,6 +42,8 @@ struct BlockAtlas {
 				TextureAtlas::create_from_texture(std::move(tex), SPRITE_SIZE));
 		}
 
+		this->atlas = TextureAtlas(this->frames[0].texture(), atlas.sprite_size());
+
 		stbi_image_free(base_pixels);
 	}
 
@@ -54,6 +56,10 @@ struct BlockAtlas {
 	inline const TextureAtlas &get_current_atlas() const {
 		usize frame_idx = (ticks / BLOCK_ATLAS_FPS) % BLOCK_ATLAS_FRAMES;
 		return this->frames[frame_idx];
+	}
+
+	inline const TextureAtlas &get_atlas() const {
+		return this->atlas;
 	}
 
 private:
@@ -70,5 +76,6 @@ private:
 	}
 
 	std::vector<TextureAtlas> frames;
+	TextureAtlas atlas;
 	usize ticks;
 };

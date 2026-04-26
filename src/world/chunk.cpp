@@ -75,7 +75,7 @@ void Mesh::finalize(bool depth_sort) {
 		this->data.data, 0, (this->data.count) * sizeof(f32));
 
 	if (depth_sort) {
-		this->depth_sort(this->chunk->world->player->camera.position);
+		this->depth_sort(this->chunk->get_world()->get_player()->get_camera().position);
 	}
 
 	this->ibo.sub_data(
@@ -83,7 +83,23 @@ void Mesh::finalize(bool depth_sort) {
 }
 
 void Mesh::render() {
+	state.get_shader().use();
+	state.get_shader().set_camera(state.get_world()->get_player()->get_camera());
 
+	auto m = glm::mat4(1.0f);
+	m = glm::translate(m, this->chunk->get_pos());
+	state.get_shader().set_mat4("m", std::move(m));
+
+	state.get_shader().set_texture_2d("tex", state.get_atlas().get_atlas().texture(), 0);
+	
+	const usize vertex_size = 8 * sizeof(f32);
+	this->vao.attr(this->vbo, 0, 3, GL_FLOAT, vertex_size, 0 * sizeof(f32));
+	this->vao.attr(this->vbo, 1, 2, GL_FLOAT, vertex_size, 3 * sizeof(f32));
+	this->vao.attr(this->vbo, 2, 3, GL_FLOAT, vertex_size, 5 * sizeof(f32));
+
+	this->vao.bind();
+	this->ibo.bind();
+	glDrawElements(GL_TRIANGLES, this->indices.count, GL_UNSIGNED_SHORT, nullptr);
 }
 
 void Chunk::emit_sprite(
@@ -242,8 +258,8 @@ void Chunk::mesh(MeshPass pass) {
 			if (block.is_sprite()) {
 				this->emit_sprite(
 					&this->transparent, fpos,
-					state.get_atlas().atlas.offset(blocks[data].get_texture_location(this - world, wpos, NORTH)),
-					state.get_atlas().atlas.sprite_unit);
+					state.get_atlas().get_atlas().offset(blocks[(BlockId)data].get_texture_location(this->world, wpos, NORTH)),
+					state.get_atlas().get_atlas().unit());
 			} else {
 				bool shorten_y = false;
 
@@ -276,10 +292,10 @@ void Chunk::mesh(MeshPass pass) {
 					if (neighbor_transparent && (
 						(pass == MeshPass::FULL && !transparent) ||
 						(transparent && neighbor_block.id != block.id))) {
-						//this->emit_face(
-						//	transparent ? &this->transparent : &this->base, fpos, dir,
-						//	state.block_atlas.atlas.offset(block.get_texture_location(this->world, wpos, dir)),
-						//	state.block_atlas.atlas.sprite_unit, transparent, shorten_y);
+						this->emit_face(
+							transparent ? &this->transparent : &this->base, fpos, dir,
+							state.get_atlas().get_atlas().offset(block.get_texture_location(this->world, wpos, dir)),
+							state.get_atlas().get_atlas().unit(), transparent, shorten_y);
 					}
 				}
 			}
@@ -311,8 +327,10 @@ void Chunk::render_transparent() {
 }
 
 void Chunk::update() {
-	//EntityPlayer *player = &this->world->player;
-	//this->depth_sort = false;
+	EntityPlayer *player = this->world->get_player();
+	this->depth_sort =
+		((this->offset == player->offset) && player->block_pos_changed) ||
+		(player->offset_changed && glm::length(this->offset - player->offset) < 2);
 }
 
 void Chunk::tick() {}
