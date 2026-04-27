@@ -33,26 +33,6 @@ using SetFn = std::function<void(Chunk *, usize, usize, usize, u32)>;
 using GetFn = std::function<u32(Chunk *, usize, usize, usize)>;
 using NoiseFn = std::function<f32(void *p, f32 s, f32 x, f32 z)>;
 
-//struct INoise {
-//	std::array<u8, 512> params;
-//
-//	INoise() = default;
-//
-//	virtual ~INoise() = default;
-//	virtual inline f32 fn(f32 s, f32 x, f32 z);
-//};
-//
-//struct OctaveNoise : public INoise {
-//	OctaveNoise(usize n, usize o) {
-//		auto params = { n, o };
-//		std::memcpy(&this->params, &params, sizeof(Octave));
-//	}
-//	
-//	inline f32 compute(Octave *p, f32 s, f32 x, f32 z) override {
-//		f32 u = 
-//	}
-};
-
 struct Noise {
 	std::array<u8, 512> params;
 	NoiseFn compute;
