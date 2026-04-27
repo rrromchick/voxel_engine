@@ -111,4 +111,12 @@ namespace math {
 
 		return false;
 	}
+
+	constexpr u64 ivec3hash(glm::ivec3 v) {
+		u64 h = 0;
+		for (int i = 0; i < 3; i++) {
+			h ^= v[i] + 0x9e3779b9 + (h << 6) + (h >> 2);
+		}
+		return h;
+	}
 }

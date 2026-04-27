@@ -194,6 +194,10 @@ struct Chunk {
 		return this->position;
 	}
 
+	inline glm::ivec3 get_offset() const {
+		return this->offset;
+	}
+
 private:
 	inline void emit_sprite(
 		Mesh *mesh, glm::vec3 position, glm::vec2 uv_offset, glm::vec2 uv_unit) const;

@@ -1,5 +1,6 @@
 #pragma once
 
+#include <glm/glm.hpp>
 #include "typedefs.hpp"
 
 enum Direction : u8 {
