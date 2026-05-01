@@ -6,9 +6,7 @@
 #include <string>
 #include <vector>
 #include <memory>
-
-#define STB_IMAGE_IMPLEMENTATION
-#include <stb_image.h>
+#include "stb_image.h"
 
 struct Texture {
 	Texture() :
@@ -35,8 +33,8 @@ struct Texture {
 		if (this->handle) glDeleteTextures(1, &handle);
 	}
 
-	Texture(const Texture &other) = delete;
-	Texture &operator=(const Texture &other) = delete;
+	Texture(const Texture &other) = default;
+	Texture &operator=(const Texture &other) = default;
 
 	Texture(Texture &&other)
 		: handle(other.handle), sz(other.sz) {
@@ -87,7 +85,7 @@ struct TextureAtlas {
 		this->update_units();
 	}
 
-	TextureAtlas(const Texture &tex, glm::ivec2 sprite_size)
+	TextureAtlas(Texture tex, glm::ivec2 sprite_size)
 		: tex(std::move(tex)), sprite_sz(sprite_size) {
 		this->update_units();
 	}
@@ -109,8 +107,8 @@ struct TextureAtlas {
 		this->tex.bind();
 	}
 
-	inline const Texture &texture() const {
-		return this->tex;
+	inline Texture *texture() {
+		return &this->tex;
 	}
 
 	inline glm::ivec2 sprite_size() const {

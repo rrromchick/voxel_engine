@@ -42,12 +42,17 @@ struct BlockAtlas {
 				TextureAtlas::create_from_texture(std::move(tex), SPRITE_SIZE));
 		}
 
-		this->atlas = TextureAtlas(this->frames[0].texture(), atlas.sprite_size());
+		this->atlas = TextureAtlas(*(this->frames[0].texture()), atlas.sprite_size());
 
 		stbi_image_free(base_pixels);
 	}
 
 	~BlockAtlas() = default;
+
+	BlockAtlas(const BlockAtlas &other) = default;
+	BlockAtlas &operator=(const BlockAtlas &other) = default;
+	BlockAtlas(BlockAtlas &&other) = default;
+	BlockAtlas &operator=(BlockAtlas &&other) = default;
 
 	inline void tick() {
 		this->ticks++;
@@ -58,8 +63,8 @@ struct BlockAtlas {
 		return this->frames[frame_idx];
 	}
 
-	inline const TextureAtlas &get_atlas() const {
-		return this->atlas;
+	inline TextureAtlas *get_atlas() {
+		return &(this->atlas);
 	}
 
 private:

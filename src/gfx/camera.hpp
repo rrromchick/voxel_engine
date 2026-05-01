@@ -5,6 +5,9 @@
 #include <glm/gtc/type_ptr.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 #include "typedefs.hpp"
+#include "util/math.hpp"
+#include "window.hpp"
+#include <memory>
 
 enum CameraMovement : u8 {
 	FORWARD,
@@ -68,8 +71,8 @@ struct Camera {
 		this->update_camera_vectors();
 	}
 
-	Camera(f32 fov) 
-		: fov(fov), znear(0.01f), zfar(1000.0f) {
+	Camera(Window *wnd, f32 fov) 
+		: fov(fov), znear(0.01f), zfar(1000.0f), window(wnd) {
 		this->aspect = 
 			static_cast<f32>(window.get()->size().x / window.get()->size().y);
 		this->update();
@@ -156,5 +159,5 @@ private:
 		this->up = glm::normalize(glm::cross(this->right, this->front));
 	}
 
-	std::shared_ptr<Window> window;
+	std::unique_ptr<Window> window;
 };

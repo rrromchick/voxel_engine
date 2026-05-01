@@ -1,20 +1,21 @@
 #include "world.hpp"
-#include "chunk.hpp"
 #include "util/math.hpp"
 
-#include <external/noise1234.h>
+extern "C" {
+	#include <noise1234.h>
+}
 
 #define SRAND(seed) srand(seed)
 #define RAND(min, max) ((rand() % (max - min + 1)) + min)
 #define RANDCHANCE(chance) ((RAND(0, 100000) / 100000.0) <= chance)
 
 #define RADIAL2I(c, r, v)\
-	(glm::length(c - v)) / glm::length(r)
+	(glm::length(glm::vec2(c) - glm::vec2(v))) / glm::length(glm::vec2(r))
 
 #define RADIAL3I(c, r, v)\
-	(glm::length(c - v)) / glm::length(r)
+	(glm::length(glm::vec3(c) - glm::vec3(v))) / glm::length(glm::vec3(r))
 
-#define WATER_LEVEL 64
+constexpr int WATER_LEVEL = 64;
 
 enum class Biome {
 	OCEAN,
@@ -33,7 +34,7 @@ auto octave_compute = [](void *ctx, f32 seed, f32 x, f32 z) -> f32 {
 	return v;
 };
 
-Noise octave(usize n, usize o) {
+static Noise octave(int n, int o) {
 	Noise result(std::move(octave_compute));
 	Octave params = { n, o };
 	std::memcpy(&result.params, &params, sizeof(Octave));
@@ -46,14 +47,14 @@ auto combined_compute = [](void *ctx, f32 seed, f32 x, f32 z) -> f32 {
 		&p->n->params, seed, x + p->m->compute(&p->m->params, seed, x, z), z);
 };
 
-Noise combined(Noise *n, Noise *m) {
+static Noise combined(Noise *n, Noise *m) {
 	Noise result(std::move(combined_compute));
 	Combined params = { n, m };
 	std::memcpy(&result.params, &params, sizeof(Combined));
 	return result;
 }
 
-static u32 get(Chunk *chunk, usize x, usize y, usize z) {
+static u32 get(Chunk *chunk, int x, int y, int z) {
 	auto p = glm::vec3(x, y, z);
 	if (chunk->in_bounds(p)) {
 		return chunk->get_data(p);
@@ -62,7 +63,7 @@ static u32 get(Chunk *chunk, usize x, usize y, usize z) {
 	}
 }
 
-static void set(Chunk *chunk, usize x, usize y, usize z, u32 d) {
+static void set(Chunk *chunk, int x, int y, int z, u32 d) {
 	auto p = glm::vec3(x, y, z);
 	if (chunk->in_bounds(p)) {
 		chunk->set_data(p, d);
@@ -71,24 +72,24 @@ static void set(Chunk *chunk, usize x, usize y, usize z, u32 d) {
 	}
 }
 
-static void tree(Chunk *chunk, GetFn get, SetFn set, usize x, usize y, usize z) {
+static void tree(Chunk *chunk, GetFn get, SetFn set, int x, int y, int z) {
 	auto under = static_cast<BlockId>(get(chunk, x, y - 1, z));
 	if (under != BlockId::GRASS && under != BlockId::DIRT) {
 		return;
 	}
 
-	usize h = RAND(3, 5);
+	int h = RAND(3, 5);
 	
-	for (usize yy = y; yy <= (y + h); yy++) {
+	for (int yy = y; yy <= (y + h); yy++) {
 		set(chunk, x, yy, z, BlockId::LOG);
 	}
 
-	usize lh = RAND(2, 3);
+	int lh = RAND(2, 3);
 
-	for (usize xx = (x - 2); xx <= (x + 2); xx++) {
-		for (usize zz = (z - 2); zz <= (z + 2); zz++) {
-			for (usize yy = (y + h); yy <= (y + 2); yy++) {
-				usize c = 0;
+	for (int xx = (x - 2); xx <= (x + 2); xx++) {
+		for (int zz = (z - 2); zz <= (z + 2); zz++) {
+			for (int yy = (y + h); yy <= (y + h + 1); yy++) {
+				int c = 0;
 				c += xx == (x - 2) || xx == (x + 2);
 				c += zz == (z - 2) || zz == (z + 2);
 				bool corner = c == 2;
@@ -101,10 +102,10 @@ static void tree(Chunk *chunk, GetFn get, SetFn set, usize x, usize y, usize z) 
 		}
 	}
 
-	for (usize xx = (x - 1); xx <= (x + 1); xx++) {
-		for (usize zz = (z - 1); zz <= (z + 1); zz++) {
-			for (usize yy = (y + h + 2); yy <= (y + h + lh); yy++) {
-				usize c = 0;
+	for (int xx = (x - 1); xx <= (x + 1); xx++) {
+		for (int zz = (z - 1); zz <= (z + 1); zz++) {
+			for (int yy = (y + h + 2); yy <= (y + h + lh); yy++) {
+				int c = 0;
 				c += xx == (x - 1) || xx == (x + 1);
 				c += zz == (z - 1) || zz == (z + 1);
 				bool corner = c == 2;
@@ -117,15 +118,15 @@ static void tree(Chunk *chunk, GetFn get, SetFn set, usize x, usize y, usize z) 
 	}
 }
 
-static void flowers(Chunk *chunk, GetFn get, SetFn set, usize x, usize y, usize z) {
+static void flowers(Chunk *chunk, GetFn get, SetFn set, int x, int y, int z) {
 	auto flower = RANDCHANCE(0.6) ? BlockId::ROSE : BlockId::BUTTERCUP;
 
-	usize s = RAND(2, 6);
-	usize l = RAND(s - 1, s + 1);
-	usize h = RAND(s - 1, s + 1);
+	int s = RAND(2, 6);
+	int l = RAND(s - 1, s + 1);
+	int h = RAND(s - 1, s + 1);
 
-	for (usize xx = (x - l); xx <= (x + l); xx++) {
-		for (usize zz = (z - h); zz <= (z + h); zz++) {
+	for (int xx = (x - l); xx <= (x + l); xx++) {
+		for (int zz = (z - h); zz <= (z + h); zz++) {
 			auto under = static_cast<BlockId>(get(chunk, xx, y, zz));
 			if ((under == GRASS) && RANDCHANCE(0.5)) {
 				set(chunk, xx, y + 1, zz, flower);
@@ -135,14 +136,14 @@ static void flowers(Chunk *chunk, GetFn get, SetFn set, usize x, usize y, usize 
 }
 
 static void orevein(
-	Chunk *chunk, GetFn get, SetFn set, usize x, usize y, usize z, BlockId block) {
-	usize h = RAND(1, y - 4);
+	Chunk *chunk, GetFn get, SetFn set, int x, int y, int z, BlockId block) {
+	int h = RAND(1, y - 4);
 
 	if (h < 0 || h > y - 4) {
 		return;
 	}
 
-	usize s;
+	int s;
 	switch (block) {
 		case BlockId::COAL:
 			s = RAND(2, 4);
@@ -153,16 +154,16 @@ static void orevein(
 			break;
 	}
 
-	usize l = RAND(s - 1, s + 1);
-	usize w = RAND(s - 1, s + 1);
-	usize i = RAND(s - 1, s + 1);
+	int l = RAND(s - 1, s + 1);
+	int w = RAND(s - 1, s + 1);
+	int i = RAND(s - 1, s + 1);
 
-	for (usize xx = (x - l); xx <= (x + l); xx++) {
-		for (usize zz = (z - w); zz <= (z + w); zz++) {
-			for (usize yy = (h - i); yy <= (h + i); yy++) {
+	for (int xx = (x - l); xx <= (x + l); xx++) {
+		for (int zz = (z - w); zz <= (z + w); zz++) {
+			for (int yy = (h - i); yy <= (h + i); yy++) {
 				f32 d = 1.0f - RADIAL3I(
-					glm::ivec3(x, h, z), glm::ivec3(l + 1, w + 1, i + 1),
-					glm::ivec3(xx, yy, zz));
+					glm::vec3(x, h, z), glm::vec3(l + 1, w + 1, i + 1),
+					glm::vec3(xx, yy, zz));
 
 				if (get(chunk, xx, yy, zz) == BlockId::STONE && RANDCHANCE(0.2 + d * 0.7)) {
 					set(chunk, xx, yy, zz, block);
@@ -172,22 +173,22 @@ static void orevein(
 	}
 }
 
-static void lavapool(Chunk *chunk, GetFn get, SetFn set, usize x, usize y, usize z) {
-	usize h = y + 1;
+static void lavapool(Chunk *chunk, GetFn get, SetFn set, int x, int y, int z) {
+	int h = y + 1;
 
-	usize s = RAND(1, 5);
-	usize l = RAND(s - 1, s + 1);
-	usize w = RAND(s - 1, s + 1);
+	int s = RAND(1, 5);
+	int l = RAND(s - 1, s + 1);
+	int w = RAND(s - 1, s + 1);
 
-	for (usize xx = (x - l); xx <= (x + l); xx++) {
-		for (usize zz = (z - w); zz <= (z + w); zz++) {
+	for (int xx = (x - l); xx <= (x + l); xx++) {
+		for (int zz = (z - w); zz <= (z + w); zz++) {
 			f32 d = 1.0f - RADIAL2I(
-				glm::ivec2(x, z), glm::ivec2(l + 1, w + 1), glm::ivec2(xx, zz));
+				glm::vec2(x, z), glm::vec2(l + 1, w + 1), glm::vec2(xx, zz));
 			
 			bool allow = true;
 
-			for (usize i = -1; i <= 1; i++) {
-				for (usize j = -1; j <= 1; j++) {
+			for (int i = -1; i <= 1; i++) {
+				for (int j = -1; j <= 1; j++) {
 					auto block = static_cast<BlockId>(get(chunk, xx + i, h, zz + j));
 					if (block != BlockId::LAVA &&
 						blocks[block].is_transparent(chunk->get_world(), glm::ivec3(xx + i, h, zz + i))) {
@@ -230,9 +231,9 @@ void World::generate(Chunk *chunk) {
 		combined(&os[4], &os[5]),
 	};
 
-	for (usize x = 0; x < CHUNK_SIZE.x; x++) {
-		for (usize z = 0; z < CHUNK_SIZE.z; z++) {
-			usize wx = chunk->get_pos().x + x, wz = chunk->get_pos().z + z;
+	for (int x = 0; x < CHUNK_SIZE.x; x++) {
+		for (int z = 0; z < CHUNK_SIZE.z; z++) {
+			int wx = chunk->get_pos().x + x, wz = chunk->get_pos().z + z;
 
 			const f32 base_scale = 1.3f;
 			int hr;
@@ -248,7 +249,9 @@ void World::generate(Chunk *chunk) {
 				hr = math::max(hh, hl);
 			}
 
-			usize h = hr + WATER_LEVEL;
+			int h = hr + WATER_LEVEL;
+			if (h < 0) h = 0;
+			if (h > 256) h = 256;
 
 			Biome biome;
 			if (h < WATER_LEVEL) {
@@ -265,7 +268,7 @@ void World::generate(Chunk *chunk) {
 				h += (r + (-t / 12.0f)) * 2 + 2;
 			}
 
-			usize d = r * 1.4f + 5.0f;
+			int d = r * 1.4f + 5.0f;
 
 			BlockId top_block;
 			switch (biome) {
@@ -297,7 +300,7 @@ void World::generate(Chunk *chunk) {
 					break;
 			}
 
-			for (usize y = 0; y < h; y++) {
+			for (int y = 0; y < h; y++) {
 				BlockId block;
 				if (y == (h - 1)) {
 					block = top_block;
@@ -314,7 +317,7 @@ void World::generate(Chunk *chunk) {
 				chunk->set_data(glm::ivec3(x, y, z), block);
 			}
 
-			for (usize y = h; y < WATER_LEVEL; y++) {
+			for (int y = h; y < WATER_LEVEL; y++) {
 				chunk->set_data(glm::ivec3(x, y, z), WATER);
 			}
 

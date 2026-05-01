@@ -381,4 +381,4 @@ struct Blocks {
 	BlockWater water;
 };
 
-Blocks blocks;
+extern Blocks blocks;

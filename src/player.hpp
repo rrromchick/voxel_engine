@@ -6,17 +6,17 @@
 struct World;
 
 struct EntityPlayer {
-	EntityPlayer(World *world);
-	~EntityPlayer();
+	EntityPlayer(World *world, Window *wnd);
+	~EntityPlayer() {}
 	
 	EntityPlayer(const EntityPlayer &other) = delete;
 	EntityPlayer &operator=(const EntityPlayer &other) = delete;
 	EntityPlayer(EntityPlayer &&other) = default;
 	EntityPlayer &operator=(EntityPlayer &&other) = default;
 
-	inline void render();
-	inline void update();
-	inline void tick();
+	void render();
+	void update();
+	void tick();
 
 	bool has_look_block;
 	glm::ivec3 look_block;
@@ -29,8 +29,8 @@ struct EntityPlayer {
 
 	BlockId selected_block;
 
-	inline const Camera &get_camera() {
-		return this->camera;
+	inline Camera *get_camera() {
+		return &this->camera;
 	}
 
 private:

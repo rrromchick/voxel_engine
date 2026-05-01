@@ -5,10 +5,15 @@
 #include <glm/gtx/norm.hpp>
 #include "gfx/vbo.hpp"
 #include "gfx/vao.hpp"
-#include "world.hpp"
 #include "typedefs.hpp"
+#include "util/direction.hpp"
 #include <memory>
 #include <algorithm>
+#include <array>
+#include <span>
+
+struct Chunk;
+struct World;
 
 constexpr auto CHUNK_SIZE = glm::ivec3(16, 256, 16);
 constexpr auto CHUNK_SIZE_F = glm::vec3(16, 256, 16);
@@ -106,15 +111,11 @@ constexpr auto INDICES_BUFFER_SIZE = (16 * 256 * 16) * 36 * sizeof(u16);
 constexpr auto FACES_BUFFER_SIZE = (16 * 256 * 16) * 96 * sizeof(u16);
 
 #define chunk_foreach(_pname)\
-	glm::ivec3 _pname = glm::ivec3(0);\
-	for (usize x = 0; x < CHUNK_SIZE.x; x++)\
-		for (usize y = 0; y < CHUNK_SIZE.y; y++)\
-			for (usize z = 0;\
-				z < CHUNK_SIZE.z &&\
-				((_pname.x = x) != INT32_MAX) &&\
-				((_pname.y = y) != INT32_MAX) &&\
-				((_pname.z = z) != INT32_MAX);\
-				z++)
+	glm::ivec3 _pname;\
+	for (int x = 0; x < CHUNK_SIZE.x; x++)\
+		for (int y = 0; y < CHUNK_SIZE.y; y++)\
+			for (int z = 0; z < CHUNK_SIZE.z; z++)\
+				_pname = glm::ivec3(x, y, z);
 
 #define chunk_pos_to_index(p)\
 	(p.x * CHUNK_SIZE.y * CHUNK_SIZE.z + p.y * CHUNK_SIZE.z + p.z)
@@ -166,12 +167,12 @@ struct Chunk {
 		return *this;
 	}
 
-	inline void set_data(glm::ivec3 pos, u32 data);
-	inline u32 get_data(glm::ivec3 pos) const;
-	inline void render();
-	inline void render_transparent();
-	inline void update();
-	inline void tick();
+	void set_data(glm::ivec3 pos, u32 data);
+	u32 get_data(glm::ivec3 pos) const;
+	void render();
+	void render_transparent();
+	void update();
+	void tick();
 	
 	inline bool in_bounds(glm::ivec3 position) const {
 		return position.x >= 0 && position.y >= 0 && position.z >= 0 &&
@@ -184,7 +185,7 @@ struct Chunk {
 			position.z == (CHUNK_SIZE.z - 1);
 	}
 
-	inline void get_bordering_chunks(glm::ivec3 pos, std::span<Chunk *, 2> dest);
+	inline void get_bordering_chunks(glm::ivec3 pos, std::span<Chunk *, 4> dest);
 
 	inline World *get_world() {
 		return this->world;

@@ -1,4 +1,5 @@
 #include "chunk.hpp"
+#include "world.hpp"
 #include "state.hpp"
 
 GlobalBuffer global_buffers[3];
@@ -29,7 +30,10 @@ void Mesh::depth_sort(glm::vec3 center) {
 		faces_ptr[i].distance = glm::length2(center - faces_ptr[i].position);
 	}
 
-	std::sort(faces_ptr, faces_ptr + this->faces.count, depth_sort_cmp);
+	std::sort(faces_ptr, faces_ptr + this->faces.count, [](const Face &a, const Face &b) -> int {
+		return static_cast<int>(-glm::sign(a.distance - b.distance));
+	});
+	
 	u16 *t = global_buffers[2].indices.data();
 
 	for (usize i = 0; i < this->faces.count; i++) {
@@ -75,7 +79,7 @@ void Mesh::finalize(bool depth_sort) {
 		this->data.data, 0, (this->data.count) * sizeof(f32));
 
 	if (depth_sort) {
-		this->depth_sort(this->chunk->get_world()->get_player()->get_camera().position);
+		this->depth_sort(this->chunk->get_world()->get_player()->get_camera()->position);
 	}
 
 	this->ibo.sub_data(
@@ -83,14 +87,15 @@ void Mesh::finalize(bool depth_sort) {
 }
 
 void Mesh::render() {
-	state.get_shader().use();
-	state.get_shader().set_camera(state.get_world()->get_player()->get_camera());
+	auto state = chunk->get_world()->get_state();
+	state->shader->use();
+	state->shader->set_camera(*state->get_world()->get_player()->get_camera());
 
 	auto m = glm::mat4(1.0f);
 	m = glm::translate(m, this->chunk->get_pos());
-	state.get_shader().set_mat4("m", std::move(m));
+	state->shader->set_mat4("m", std::move(m));
 
-	state.get_shader().set_texture_2d("tex", state.get_atlas().get_atlas().texture(), 0);
+	state->shader->set_texture_2d("tex", *(state->get_atlas()->get_atlas()->texture()), 0);
 	
 	const usize vertex_size = 8 * sizeof(f32);
 	this->vao.attr(this->vbo, 0, 3, GL_FLOAT, vertex_size, 0 * sizeof(f32));
@@ -197,7 +202,7 @@ void Chunk::emit_face(
 	mesh->vertex_count += 4;
 }
 
-void Chunk::get_bordering_chunks(glm::ivec3 pos, std::span<Chunk *, 2> dest) {
+void Chunk::get_bordering_chunks(glm::ivec3 pos, std::span<Chunk *, 4> dest) {
 	usize i = 0;
 
 	if (pos.x == 0) {
@@ -223,7 +228,7 @@ void Chunk::set_data(glm::ivec3 pos, u32 data) {
 	this->dirty = true;
 
 	if (this->on_bounds(pos)) {
-		std::array<Chunk *, 2> neighbors = { nullptr, nullptr };
+		std::array<Chunk *, 4> neighbors = { nullptr, nullptr, nullptr, nullptr };
 		this->get_bordering_chunks(pos, neighbors);
 
 		for (usize i = 0; i < 2; i++) {
@@ -256,10 +261,11 @@ void Chunk::mesh(MeshPass pass) {
 			bool transparent = block.is_transparent(this->world, wpos);
 
 			if (block.is_sprite()) {
+				auto state = world->get_state();
 				this->emit_sprite(
 					&this->transparent, fpos,
-					state.get_atlas().get_atlas().offset(blocks[(BlockId)data].get_texture_location(this->world, wpos, NORTH)),
-					state.get_atlas().get_atlas().unit());
+					state->block_atlas->get_atlas()->offset(blocks[(BlockId) data].get_texture_location(this->world, wpos, NORTH)),
+					state->block_atlas->get_atlas()->unit());
 			} else {
 				bool shorten_y = false;
 
@@ -292,10 +298,11 @@ void Chunk::mesh(MeshPass pass) {
 					if (neighbor_transparent && (
 						(pass == MeshPass::FULL && !transparent) ||
 						(transparent && neighbor_block.id != block.id))) {
+						auto state = world->get_state();
 						this->emit_face(
 							transparent ? &this->transparent : &this->base, fpos, dir,
-							state.get_atlas().get_atlas().offset(block.get_texture_location(this->world, wpos, dir)),
-							state.get_atlas().get_atlas().unit(), transparent, shorten_y);
+							state->block_atlas->get_atlas()->offset(block.get_texture_location(this->world, wpos, dir)),
+							state->block_atlas->get_atlas()->unit(), transparent, shorten_y);
 					}
 				}
 			}
@@ -330,7 +337,7 @@ void Chunk::update() {
 	EntityPlayer *player = this->world->get_player();
 	this->depth_sort =
 		((this->offset == player->offset) && player->block_pos_changed) ||
-		(player->offset_changed && glm::length(this->offset - player->offset) < 2);
+		(player->offset_changed && glm::distance(glm::vec3(this->offset), glm::vec3(player->offset)) < 2);
 }
 
 void Chunk::tick() {}

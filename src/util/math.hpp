@@ -3,6 +3,7 @@
 #include <glm/glm.hpp>
 #include <glm/gtc/constants.hpp>
 #include "typedefs.hpp"
+#include "util/direction.hpp"
 
 namespace math {
 	static constexpr f32 PI_2 = glm::pi<f32>() / 2.0f;
@@ -19,9 +20,9 @@ namespace math {
 		return (x < y) ? x : y;
 	}
 
-	template <typename X, typename Mn, typename Mx>
+	template <typename X, typename Mn = X, typename Mx = X>
 	inline constexpr X clamp(X x, Mn mn, Mx mx) {
-		return math::max<X>(mn, math::min(mx, x));
+		return math::max<X>(mn, math::min<Mn>(mx, x));
 	}
 
 	inline glm::vec3 intbound(glm::vec3 s, glm::vec3 ds) {
@@ -49,9 +50,9 @@ namespace math {
 	};
 
 	inline bool ray_block(
-		Ray ray, f32 max_distance, std::function<bool(glm::ivec3)> f,
+		Ray ray, f32 max_distance, std::function<bool(glm::vec3)> f,
 		glm::ivec3 *out, Direction *d_out) {
-		glm::ivec3 p, step;
+		glm::vec3 p, step;
 		glm::vec3 d, tmax, tdelta;
 		f32 radius;
 

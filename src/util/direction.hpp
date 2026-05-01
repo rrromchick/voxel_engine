@@ -2,6 +2,7 @@
 
 #include <glm/glm.hpp>
 #include "typedefs.hpp"
+#include <array>
 
 enum Direction : u8 {
 	NORTH = 0,

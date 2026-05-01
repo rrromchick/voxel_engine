@@ -11,6 +11,8 @@
 #include <memory>
 #include <string>
 
+struct State;
+
 struct Button {
 	bool down, last, last_tick, pressed, pressed_tick;
 
@@ -77,63 +79,17 @@ struct Keyboard {
 };
 
 struct Window {
-	u64 last_second;
-	u64 frames, fps, last_frame, frame_delta;
-	u64 ticks, tps, tick_remainder;
-
-	explicit Window(glm::ivec2 sz, const std::string &title)
-		: sz(sz), title(std::move(title)) {
-		this->last_frame = time::now();
-		this->last_second = time::now();
-
-		if (!glfwInit()) {
-			std::fprintf(stderr, "%s", "error initializing GLFW\n");
-			std::exit(1);
-		}
-
-		glfwWindowHint(GLFW_RESIZABLE, GL_TRUE);
-		glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
-		glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
-		glfwWindowHint(GLFW_OPENGL_CORE_PROFILE, GLFW_OPENGL_CORE_PROFILE);
-
-#ifdef __APPLE__
-		glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GL_TRUE);
-#endif
-
-		this->handle.reset(glfwCreateWindow(
-			sz.x, sz.y, title.c_str(), nullptr, nullptr));
-		if (this->handle == nullptr) {
-			std::fprintf(stderr, "%s", "error creating window\n");
-			glfwTerminate();
-			std::exit(1);
-		}
-
-		glfwSetWindowUserPointer(this->handle.get(), this);
-
-		glfwMakeContextCurrent(this->handle.get());
-
-		glfwSetFramebufferSizeCallback(this->handle.get(), size_callback);
-		glfwSetCursorPosCallback(this->handle.get(), cursor_callback);
-		glfwSetKeyCallback(this->handle.get(), key_callback);
-		glfwSetMouseButtonCallback(this->handle.get(), mouse_callback);
+	u64 last_second = 0;
+	u64 frames = 0, fps = 0, last_frame = 0, frame_delta = 0;
+	u64 ticks = 0, tps = 0, tick_remainder = 0;
 	
-		if (!gladLoadGLLoader((GLADloadproc) glfwGetProcAddress)) {
-			std::fprintf(stderr, "%s", "error initializing GLAD\n");
-			glfwTerminate();
-			std::exit(1);
-		}
+	Window(State *state);
+	~Window();
 
-		glfwSwapInterval(1);
-	}
+	Window(Window &other) = default;
+	Window &operator=(Window &other) = default;
 
-	~Window() {
-		glfwTerminate();
-	}
-
-	Window(Window &other) = delete;
-	Window &operator=(Window &other) = delete;
-
-	Window(Window &&other)
+	Window(Window &&other) noexcept
 		: handle(std::move(other.handle)),
 		mouse(std::move(other.mouse)),
 		keyboard(std::move(other.keyboard)),
@@ -142,10 +98,12 @@ struct Window {
 		if (this->handle) {
 			glfwSetWindowUserPointer(this->handle.get(), this);
 		}
+		this->state = other.state;
+		other.state = nullptr;
 		other.sz = glm::ivec2(0, 0);
 	}
 
-	Window &operator=(Window &&other) {
+	Window &operator=(Window &&other) noexcept {
 		assert(this != &other);
 		this->handle = std::move(other.handle);
 		this->mouse = std::move(other.mouse);
@@ -161,22 +119,9 @@ struct Window {
 		return *this;
 	}
 
-	inline void tick() {
-		this->ticks++;
-		this->mouse.tick();
-		this->keyboard.tick();
-	}
-
-	inline void update() {
-		this->mouse.update();
-		this->keyboard.update();
-
-		this->mouse.delta = glm::ivec2(0);
-	}
-
-	inline void render() {
-		this->frames++;
-	}
+	inline void tick();
+	inline void update();
+	inline void render();
 
 	inline GLFWwindow *get_handle() const {
 		return this->handle.get();
@@ -186,37 +131,7 @@ struct Window {
 		return this->sz;
 	}
 
-	inline void loop() {
-		while (!glfwWindowShouldClose(handle.get())) {
-			const u64 now = time::now();
-
-			this->frame_delta = now - last_frame;
-			this->last_frame = now;
-
-			if (now - this->last_second > NS_PER_SECOND) {
-				this->fps = frames;
-				this->tps = ticks;
-				this->frames = 0;
-				this->ticks = 0;
-				this->last_second = now;
-
-				std::printf("FPS: %lld | TPS: %lld\n", this->fps, this->tps);
-			}
-
-			const u64 NS_PER_TICK = (NS_PER_SECOND / 60);
-			u64 tick_time = frame_delta + tick_remainder;
-			while (tick_time > NS_PER_TICK) {
-				this->tick();
-				tick_time -= NS_PER_TICK;
-			}
-			this->tick_remainder = math::max<u64>(tick_time, 0);
-
-			this->update();
-			this->render();
-			glfwSwapBuffers(this->handle.get());
-			glfwPollEvents();
-		}
-	}
+	inline void loop();
 		
 	inline void set_grabbed(bool grabbed) {
 		glfwSetInputMode(this->handle.get(), GLFW_CURSOR, grabbed ?
@@ -298,4 +213,6 @@ private:
 
 	glm::ivec2 sz;
 	std::string title;
+
+	State *state;
 };

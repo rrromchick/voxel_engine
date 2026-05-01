@@ -5,6 +5,7 @@
 
 #include "texture.hpp"
 #include "typedefs.hpp"
+#include "camera.hpp"
 
 #include <fstream>
 #include <sstream>
@@ -13,7 +14,9 @@
 struct Shader {
 	uint id;
 
-	Shader(const char *vertex_path, const char *fragment_path) {
+	Shader() = default;
+
+	explicit Shader(const char *vertex_path, const char *fragment_path) {
 		std::string vertex_code;
 		std::string fragment_code;
 		std::ifstream v_shader_file;
@@ -66,15 +69,6 @@ struct Shader {
 	}
 
 	~Shader() {}
-
-	//Shader(const Shader &other) = delete;
-	//Shader &operator=(const Shader &other) = delete;
-
-	//Shader(Shader &&other) = default;
-	//Shader &operator=(Shader &&other) {
-	//	*this = std::move(other);
-	//	return *this;
-	//}
 
 	inline void use() const {
 		glUseProgram(this->id);
