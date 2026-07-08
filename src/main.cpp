@@ -1,180 +1,173 @@
+#define STB_IMAGE_IMPLEMENTATION
+#include "global.hpp"
+#include "gfx/shader.hpp"
+#include "gfx/texture.hpp"
 #include "gfx/vao.hpp"
 #include "gfx/vbo.hpp"
-#include "gfx/shader.hpp"
-#include "gfx/camera.hpp"
-#include "state.hpp"
-#include "block/block.hpp"
+#include "window/window.hpp"
+#include "window/camera.hpp"
+#include "std.hpp"
 
-#define STB_IMAGE_IMPLEMENTATION
-#include <stb_image.h>
+Global global;
 
-Window::Window(State *state)
-	: state(state), mouse(), keyboard() {
-	if (!glfwInit()) {
-		std::fprintf(stderr, "%s", "error initializing GLFW\n");
-		std::exit(1);
+constexpr auto WIDTH = 1280;
+constexpr auto HEIGHT = 720;
+
+constexpr f32 vertices[] = {
+	-1.0f, -1.0f, 0.0f, 0.0f, 0.0f,
+	1.0f, -1.0f, 0.0f, 1.0f, 0.0f,
+	-1.0f, 1.0f, 0.0f, 0.0f, 1.0f,
+
+	1.0f, -1.0f, 0.0f, 1.0f, 0.0f,
+	1.0f, 1.0f, 0.0f, 1.0f, 1.0f,
+	-1.0f, 1.0f, 0.0f, 0.0f, 1.0f,
+};
+
+constexpr std::array<int, 2> attrs { 2, 0 };
+
+int main(int argc, char *argv[]) {
+	global.time = std::make_unique<Time>([]() -> u64 {
+		return std::chrono::duration_cast<std::chrono::nanoseconds>(
+			std::chrono::high_resolution_clock::now().time_since_epoch())
+				.count();
+	});
+
+	global.window = std::make_unique<Window>(glm::ivec2(WIDTH, HEIGHT), "Window");
+
+	auto *wnd = global.window.get();
+
+	std::unique_ptr<Shader> shader(Shader::load("res/shaders/main.glslv", "res/shaders/main.glslf"));
+	if (shader == nullptr) {
+		std::cerr << "failed to load shader" << std::endl;
+		return 1;
 	}
 
-	glfwWindowHint(GLFW_RESIZABLE, GL_TRUE);
-	glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
-	glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
-	glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
-	
-#ifdef __APPLE__
-	glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GL_TRUE);
-#endif
-
-	this->sz = glm::ivec2(1280, 720);
-	this->handle.reset(
-		glfwCreateWindow(sz.x, sz.y, "Voxel Engine", nullptr, nullptr));
-	if (this->handle.get() == nullptr) {
-		std::fprintf(stderr, "%s", "error creating window\n");
-		glfwTerminate();
-		std::exit(1);
+	auto texture = std::make_unique<Texture>("res/images/img.png");
+	if (texture == nullptr) {
+		std::cerr << "failed to load texture" << std::endl;
+		return 1;
 	}
 
-	glfwSetWindowUserPointer(this->handle.get(), this);
+	VBO vbo(GL_ARRAY_BUFFER, false);
+	vbo.data(vertices, sizeof(vertices));
 
-	glfwMakeContextCurrent(handle.get());
+	VAO vao;
+	GLsizei stride = 5 * sizeof(f32);
 
-	glfwSetFramebufferSizeCallback(handle.get(), size_callback);
-	glfwSetCursorPosCallback(handle.get(), cursor_callback);
-	glfwSetKeyCallback(handle.get(), key_callback);
-	glfwSetMouseButtonCallback(handle.get(), mouse_callback);
+	vao.attr(vbo, 0, 3, GL_FLOAT, stride, 0 * sizeof(f32));
+	vao.attr(vbo, 1, 2, GL_FLOAT, stride, 3 * sizeof(f32));
 
-	if (!gladLoadGLLoader((GLADloadproc) glfwGetProcAddress)) {
-		std::fprintf(stderr, "%s", "error initializing GLAD\n");
-		glfwTerminate();
-		std::exit(1);
-	}
+	vao.unbind();
 
-	glfwSwapInterval(1);
-}
-
-Window::~Window() {
-	if (handle) {
-		glfwSetWindowUserPointer(handle.get(), nullptr);
-
-		glfwSetFramebufferSizeCallback(handle.get(), nullptr);
-		glfwSetKeyCallback(handle.get(), nullptr);
-		glfwSetCursorPosCallback(handle.get(), nullptr);
-		glfwSetMouseButtonCallback(handle.get(), nullptr);
-
-		handle.reset();
-	}
-}
-
-void Window::tick() {
-	this->ticks++;
-	this->mouse.tick();
-	this->keyboard.tick();
-
-	state->block_atlas->tick();
-	state->world->tick();
-
-	auto world = state->world.get();
-
-	world->set_center(
-		world->pos_to_block(
-		world->get_player()->get_camera()->position));
-	
-	if (state->window->keyboard.keys[GLFW_KEY_C].pressed_tick) {
-		for (int x = 0; x < 32; x++) {
-			for (int y = 0; y < 80; y++) {
-				world->set_data(glm::ivec3(x, y, 4), BlockId::GLASS);
-				world->set_data(glm::ivec3(x, y, 8), BlockId::LAVA);
-			}
-		}
-
-		world->set_data(glm::ivec3(40, 80, 4), BlockId::ROSE);
-	}
-}
-
-void Window::update() {
-	this->mouse.update();
-	this->keyboard.update();
-	
-	state->world.get()->update();
-
-	if (state->window->keyboard.keys[GLFW_KEY_T].pressed) {
-		state->wireframe = !state->wireframe;
-	}
-
-	this->mouse.delta = glm::vec2(0.0f);
-}
-
-void Window::render() {
-	this->frames++;
-
-	glClearColor(0.5f, 0.8f, 0.9f, 1.0f);
-	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-
-	glPolygonMode(GL_FRONT_AND_BACK, state->wireframe ? GL_LINE : GL_FILL);
-	state->world.get()->render();
-}
-
-void Window::loop() {
-	state->shader = std::make_unique<Shader>("res/shaders/basic.vs", "res/shaders/basic.fs");
-	state->block_atlas = std::make_unique<BlockAtlas>("res/images/blocks.png");
-
-	state->world = std::make_unique<World>(this);
-	state->wireframe = false;
-	state->window.get()->set_grabbed(true);
-
-	glEnable(GL_DEPTH_TEST);
-	glDepthFunc(GL_LESS);
-
-	glEnable(GL_CULL_FACE);
-	glCullFace(GL_BACK);
+	glClearColor(0.6f, 0.62f, 0.65f, 1);
 
 	glEnable(GL_BLEND);
 	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
-	const auto pos = glm::vec3(0, 80, 0);
-	state->world.get()->get_player()->get_camera()->position = pos;
+	auto camera = std::make_unique<Camera>(
+		glm::vec3(0, 0, 1), glm::radians(90.0f));
+	
+	glm::mat4 model(1.0f);
+	model = glm::translate(model, glm::vec3(0.5f, 0, 0));
 
-	this->last_frame = ntime::now();
-	this->last_second = ntime::now();
-	this->tick_remainder = 0;
+	wnd->last_frame = global.time->now();
+	wnd->frame_delta = 0.0f;
 
-	while (!glfwWindowShouldClose(handle.get())) {
-		const u64 now = ntime::now();
+	f32 cam_x = 0.0f;
+	f32 cam_y = 0.0f;
 
-		this->frame_delta = now - last_frame;
-		this->last_frame = now;
+	f32 speed = 5;
 
-		if (now - this->last_second > NS_PER_SECOND) {
-			this->fps = frames;
-			this->tps = ticks;
-			this->frames = 0;
-			this->ticks = 0;
-			this->last_second = now;
+	while (!wnd->is_should_close()) {
+		auto current_time = global.time->now();
+		wnd->frame_delta = current_time - wnd->last_frame;
+		wnd->last_frame = current_time;
 
-			std::printf("FPS: %lld | TPS: %lld\n", this->fps, this->tps);
+		if (current_time - wnd->last_second > Time::NANOS_PER_SECOND) {
+			wnd->fps = wnd->frames;
+			wnd->tps = wnd->ticks;
+			wnd->frames = 0;
+			wnd->ticks = 0;
+			wnd->last_second = current_time;
+
+			std::printf("FPS: %lld | TPS: %lld\n", wnd->fps, wnd->tps);
 		}
 
-		const u64 NS_PER_TICK = (NS_PER_SECOND / 60);
-		u64 tick_time = frame_delta + tick_remainder;
-		while (tick_time > NS_PER_TICK) {
-			this->tick();
-			tick_time -= NS_PER_TICK;
-		}
-		this->tick_remainder = math::max<u64>(tick_time, 0);
+		auto *keyboard = wnd->get_keyboard();
+		auto *mouse = wnd->get_mouse();
 
-		this->update();
-		this->render();
-		glfwSwapBuffers(this->handle.get());
-		glfwPollEvents();
+		const u64 NANOS_PER_TICK = (Time::NANOS_PER_SECOND / 60);
+		u64 tick_time = wnd->frame_delta + wnd->tick_remainder;
+		while (tick_time > NANOS_PER_TICK) {
+			wnd->ticks++;
+			mouse->tick();
+			keyboard->tick();
+
+			tick_time -= NANOS_PER_TICK;
+		}
+
+		wnd->tick_remainder = std::max<u64>(tick_time, 0);
+
+		if (keyboard->keys[GLFW_KEY_ESCAPE].pressed) {
+			wnd->set_should_close(true);
+		}
+		if (keyboard->keys[GLFW_KEY_TAB].pressed) {
+			wnd->set_grabbed(!global.window->grabbed);
+		}
+
+		float dt = static_cast<float>(wnd->frame_delta) / 1'000'000'000.0f;
+
+		if (keyboard->keys[GLFW_KEY_W].down) {
+			camera->position += camera->front * dt * speed;
+		}
+		if (keyboard->keys[GLFW_KEY_S].down) {
+			camera->position -= camera->front * dt * speed;
+		}
+		if (keyboard->keys[GLFW_KEY_D].down) {
+			camera->position += camera->right * dt * speed;
+		}
+		if (keyboard->keys[GLFW_KEY_A].down) {
+			camera->position -= camera->right * dt * speed;
+		}
+
+		if (wnd->grabbed) {
+			cam_y += -wnd->get_mouse()->delta.y / wnd->get_size().y * 2;
+			cam_x += -wnd->get_mouse()->delta.x / wnd->get_size().x * 2;
+
+			if (cam_y < -glm::radians(89.0f)) {
+				cam_y = -glm::radians(89.0f);
+			}
+			if (cam_y > glm::radians(89.0f)) {
+				cam_y = glm::radians(89.0f);
+			}
+
+			camera->rotation = glm::mat4(1.0f);
+			camera->rotate(cam_y, cam_x, 0);
+		}
+
+		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+		shader->use();
+		shader->uniform_matrix("model", model);
+		shader->uniform_matrix("projview", camera->get_projection() * camera->get_view());
+
+		glActiveTexture(GL_TEXTURE0);
+		texture->bind();
+		shader->uniform_1i("u_texture0", 0);
+
+		vao.bind();
+		glDrawArrays(GL_TRIANGLES, 0, 6);
+		vao.unbind();
+
+		wnd->swap_buffers();
+		mouse->clear_delta();
+		wnd->poll_events();
+
+		wnd->frames++;
+
+		keyboard->update();
+		mouse->update();
 	}
-}
 
-int main(int argc, char *argv[]) {
-	auto state = std::make_unique<State>();
-		
-	state->window = std::make_unique<Window>(state.get());
-	state->window->loop();
-
-	state.reset();
-	glfwTerminate();
 	return 0;
 }

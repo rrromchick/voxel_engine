@@ -3,130 +3,52 @@
 #include <glad/glad.h>
 #include <glm/glm.hpp>
 #include "typedefs.hpp"
-#include <string>
-#include <vector>
-#include <memory>
-#include "stb_image.h"
+#include "std.hpp"
 
 struct Texture {
-	Texture() :
-		handle(0), sz(0) {}
+	Texture() : handle(0), size(0) {}
 
-	explicit Texture(const std::string &path) {
-		int width, height, channels;
-		stbi_set_flip_vertically_on_load(true);
-		unsigned char *data =
-			stbi_load(path.c_str(), &width, &height, &channels, STBI_rgb_alpha);
-		assert(data != nullptr);
+	Texture(const std::string &path);
+	Texture(const u8 *pixels, uint width, uint height);
+	~Texture();
 
-		this->sz = glm::ivec2(width, height);
+	Texture(const Texture &other) = delete;
+	Texture &operator=(const Texture &other) = delete;
+	Texture(Texture &&other) noexcept;
+	Texture &operator=(Texture &&other) noexcept;
 
-		this->load_pixels(data, width, height);
-		stbi_image_free(data);
-	}
-
-	Texture(const u8 *pixels, usize width, usize height) {
-		this->load_pixels(pixels, width, height);
-	}
-
-	~Texture() {
-		if (this->handle) glDeleteTextures(1, &handle);
-	}
-
-	Texture(const Texture &other) = default;
-	Texture &operator=(const Texture &other) = default;
-
-	Texture(Texture &&other)
-		: handle(other.handle), sz(other.sz) {
-		other.handle = 0;
-	}
-
-	Texture &operator=(Texture &&other) {
-		assert(this != &other);
-		
-		if (handle != 0) glDeleteTextures(1, &handle);
-		this->handle = other.handle;
-		this->sz = other.sz;
-		other.handle = 0;
-		return *this;
-	}
-
-	inline void bind() const {
-		glBindTexture(GL_TEXTURE_2D, handle);
-	}
-
-	inline glm::ivec2 size() const {
-		return this->sz;
-	}
+	inline void bind() const { glBindTexture(GL_TEXTURE_2D, handle); }
+	inline glm::ivec2 get_size() const { return size; }
 
 private:
-	inline void load_pixels(const u8 *pixels, usize width, usize height) {
-		this->sz = glm::ivec2(width, height);
+	void load_pixels(const u8 *pixels, usize width, usize height);
 
-		glGenTextures(1, &this->handle);
-		glBindTexture(GL_TEXTURE_2D, this->handle);
-		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-		glTexImage2D(
-			GL_TEXTURE_2D, 0, GL_RGBA8, this->sz.x, this->sz.y, 0,
-			GL_RGBA, GL_UNSIGNED_BYTE, pixels);
-	}
-
-	GLuint handle;
-	glm::ivec2 sz;
-	glm::uvec2 uv_unit;
+	GLuint handle{ 0 };
+	glm::ivec2 size{};
+	glm::uvec2 uv_unit{};
 };
 
-struct TextureAtlas {
-	TextureAtlas() = default;
-
-	explicit TextureAtlas(const std::string &path, glm::ivec2 sprite_size)
-		: tex(path), sprite_sz(sprite_size) {
-		this->update_units();
-	}
-
-	TextureAtlas(Texture tex, glm::ivec2 sprite_size)
-		: tex(std::move(tex)), sprite_sz(sprite_size) {
-		this->update_units();
-	}
-
-	static TextureAtlas create_from_texture(Texture tex, glm::ivec2 sprite_size) {
-		TextureAtlas atlas;
-		atlas.tex = std::move(tex);
-		atlas.sprite_sz = sprite_size;
-		atlas.update_units();
-		return atlas;
-	}
+struct Atlas {
+	Atlas() = default;
+	Atlas(const std::string &path, glm::ivec2 sprite_size);
+	Atlas(Texture texture, glm::ivec2 sprite_size);
+	Atlas(Texture *texture, glm::ivec2 sprite_size);
 
 	inline glm::vec2 offset(glm::ivec2 pos) const {
-		return glm::vec2(
-			pos.x, (tex.size().y / sprite_sz.y) - pos.y - 1) * sprite_unit;
+		int total_rows = texture->get_size().y / sprite_size.y;
+		int flipped_y = total_rows - pos.y - 1;
+		return glm::vec2(pos.x, flipped_y) * sprite_unit;
 	}
 
-	inline void bind() const {
-		this->tex.bind();
-	}
-
-	inline Texture *texture() {
-		return &this->tex;
-	}
-
-	inline glm::ivec2 sprite_size() const {
-		return this->sprite_sz;
-	}
-
-	inline glm::vec2 unit() const {
-		return this->sprite_unit;
-	}
+	inline void bind() const { texture->bind(); }
+	inline std::shared_ptr<Texture> get_texture() { return texture; }
+	inline glm::ivec2 get_sprite_size() const { return sprite_size; }
+	inline glm::vec2 get_sprite_unit() const { return sprite_unit; }
 
 private:
-	inline void update_units() {
-		if (tex.size().x > 0 && tex.size().y > 0) {
-			this->sprite_unit = glm::vec2(sprite_sz) / glm::vec2(tex.size());
-		}
-	}
+	void update_units();
 
-	Texture tex;
-	glm::ivec2 sprite_sz;
-	glm::vec2 sprite_unit;
+	std::shared_ptr<Texture> texture;
+	glm::ivec2 sprite_size{};
+	glm::vec2 sprite_unit{};
 };

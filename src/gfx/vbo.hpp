@@ -21,12 +21,12 @@ struct VBO {
 	VBO(const VBO &other) = delete;
 	VBO &operator=(const VBO &other) = delete;
 
-	VBO(VBO &&other)
+	VBO(VBO &&other) noexcept
 		: handle(other.handle), type(other.type), dynamic(other.dynamic) {
 		other.handle = 0;
 	}
 
-	VBO &operator=(VBO &&other) {
+	VBO &operator=(VBO &&other) noexcept {
 		assert(this != &other);
 		
 		if (this->handle != 0) glDeleteBuffers(1, &handle);

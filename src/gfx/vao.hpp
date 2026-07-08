@@ -16,12 +16,12 @@ struct VAO {
 	VAO(const VAO &other) = delete;
 	VAO &operator=(const VAO &other) = delete;
 
-	VAO(VAO &&other)
+	VAO(VAO &&other) noexcept
 		: handle(other.handle) {
 		other.handle = 0;
 	}
 
-	VAO &operator=(VAO &&other) {
+	VAO &operator=(VAO &&other) noexcept {
 		assert(this != &other);
 
 		if (this->handle != 0) glDeleteVertexArrays(1, &this->handle);
