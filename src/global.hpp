@@ -5,7 +5,6 @@
 #include "util/time.hpp"
 #include <array>
 
-struct StateGame;
 struct Window;
 
 struct Global {

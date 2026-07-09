@@ -44,7 +44,7 @@ void Texture::load_pixels(const u8 *pixels, usize width, usize height) {
 	glGenTextures(1, &handle);
 	glBindTexture(GL_TEXTURE_2D, handle);
 
-	//glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
+	glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
 
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
