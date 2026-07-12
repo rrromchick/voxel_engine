@@ -4,8 +4,11 @@
 #include "gfx/texture.hpp"
 #include "gfx/vao.hpp"
 #include "gfx/vbo.hpp"
+#include "gfx/mesh.hpp"
+#include "gfx/voxel_renderer.hpp"
 #include "window/window.hpp"
 #include "window/camera.hpp"
+#include "voxels/chunk.hpp"
 #include "std.hpp"
 
 Global global;
@@ -23,7 +26,7 @@ constexpr f32 vertices[] = {
 	-1.0f, 1.0f, 0.0f, 0.0f, 1.0f,
 };
 
-constexpr std::array<int, 2> attrs { 2, 0 };
+constexpr std::array<int, 3> attrs { 3, 2, 1 };
 
 int main(int argc, char *argv[]) {
 	global.time = std::make_unique<Time>([]() -> u64 {
@@ -42,41 +45,37 @@ int main(int argc, char *argv[]) {
 		return 1;
 	}
 
-	auto texture = std::make_unique<Texture>("res/images/img.png");
+	auto texture = std::make_unique<Texture>("res/images/block.png");
 	if (texture == nullptr) {
 		std::cerr << "failed to load texture" << std::endl;
 		return 1;
 	}
 
-	VBO vbo(GL_ARRAY_BUFFER, false);
-	vbo.data(vertices, sizeof(vertices));
-
-	VAO vao;
-	GLsizei stride = 5 * sizeof(f32);
-
-	vao.attr(vbo, 0, 3, GL_FLOAT, stride, 0 * sizeof(f32));
-	vao.attr(vbo, 1, 2, GL_FLOAT, stride, 3 * sizeof(f32));
-
-	vao.unbind();
+	
+	auto renderer = std::make_unique<VoxelRenderer>(1024 * 1024 * 8);
+	auto chunk = std::make_unique<Chunk>();
+	auto mesh = renderer.get()->render(chunk.get());
 
 	glClearColor(0.6f, 0.62f, 0.65f, 1);
 
+	glDisable(GL_CULL_FACE);
+	glEnable(GL_DEPTH_TEST);
 	glEnable(GL_BLEND);
 	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
 	auto camera = std::make_unique<Camera>(
-		glm::vec3(0, 0, 1), glm::radians(90.0f));
+		glm::vec3(8, 25, 28), glm::radians(90.0f));
 	
 	glm::mat4 model(1.0f);
-	model = glm::translate(model, glm::vec3(0.5f, 0, 0));
+	model = glm::translate(model, glm::vec3(-8.0f, -8.0f, -8.0f));
 
 	wnd->last_frame = global.time->now();
 	wnd->frame_delta = 0.0f;
 
-	f32 cam_x = 0.0f;
-	f32 cam_y = 0.0f;
+	float cam_x = glm::radians(-90.0f);
+	float cam_y = glm::radians(-40.0f);
 
-	f32 speed = 5;
+	float speed = 5;
 
 	while (!wnd->is_should_close()) {
 		auto current_time = global.time->now();
@@ -151,13 +150,8 @@ int main(int argc, char *argv[]) {
 		shader->uniform_matrix("model", model);
 		shader->uniform_matrix("projview", camera->get_projection() * camera->get_view());
 
-		glActiveTexture(GL_TEXTURE0);
 		texture->bind();
-		shader->uniform_1i("u_texture0", 0);
-
-		vao.bind();
-		glDrawArrays(GL_TRIANGLES, 0, 6);
-		vao.unbind();
+		mesh.get()->draw(GL_TRIANGLES);
 
 		wnd->swap_buffers();
 		mouse->clear_delta();

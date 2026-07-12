@@ -1,42 +1,29 @@
 #pragma once
 
 #include "std.hpp"
-#include "vbo.hpp"
-#include "vao.hpp"
+#include "gfx/vao.hpp"
+#include "gfx/vbo.hpp"
+#include "typedefs.hpp"
 
 struct Mesh {
-	explicit Mesh(const f32 *buffer, usize vertices, const int *attrs) 
-		: vertices(vertices), vao(), vbo(GL_ARRAY_BUFFER, false) {
-		int vertex_size = 0;
-		for (int i = 0; attrs[i]; i++) {
-			vertex_size += attrs[i];
-		}
-	}
-
-	~Mesh() {
-
-	}
+	Mesh(std::span<const float> buffer, std::span<const int> attrs);
+	~Mesh() = default;
 
 	Mesh(const Mesh &other) = delete;
 	Mesh &operator=(const Mesh &other) = delete;
+	Mesh(Mesh &&other) noexcept = default;
+	Mesh &operator=(Mesh &&other) noexcept = default;
 
-	Mesh(Mesh &&other) noexcept
-		: vao(std::move(other.vao)),
-		vbo(std::move(other.vbo)) {
+	void reload(std::span<const float> buffer);
+	void draw(uint primitive);
 
-	}
-
-	Mesh &operator=(Mesh &&other) noexcept {
-		vao = std::move(other.vao);
-		vbo = std::move(other.vbo);
-	}
-
-	inline void draw(uint primitive) {
-
+	inline usize get_vertices_count() const {
+		return vertices_count;
 	}
 
 private:
 	VAO vao;
 	VBO vbo;
-	usize vertices;
+	usize vertices_count;
+	int vertex_size;
 };
