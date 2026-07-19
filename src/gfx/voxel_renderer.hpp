@@ -15,7 +15,8 @@ struct VoxelRenderer {
 	VoxelRenderer(VoxelRenderer &&other) noexcept = default;
 	VoxelRenderer &operator=(VoxelRenderer &&other) noexcept = default;
 
-	std::unique_ptr<Mesh> render(Chunk *chunk);
+	std::unique_ptr<Mesh> render(Chunk *chunk,
+        const std::vector<Chunk*> &chunks);
 
 private:
 	usize capacity;

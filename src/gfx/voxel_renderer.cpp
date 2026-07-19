@@ -7,24 +7,67 @@ constexpr std::array<int, 4> CHUNK_ATTRS = { 3, 2, 1, 0 };
 constexpr float UV_SIZE = 1.0f / 16.0f;
 
 VoxelRenderer::VoxelRenderer(usize capacity) : capacity(capacity) {
-	buffer.reserve(capacity * VERTEX_SIZE * 6);
+    buffer.reserve(capacity * VERTEX_SIZE * 6);
 }
 
-std::unique_ptr<Mesh> VoxelRenderer::render(Chunk *chunk) {
-	buffer.clear();
+std::unique_ptr<Mesh> VoxelRenderer::render(
+    Chunk *chunk, const std::vector<Chunk*> &chunks) {
+    buffer.clear();
 
-	auto is_in_bounds = [](int x, int y, int z) -> bool {
-		return (x >= 0 && x < Chunk::WIDTH && y >= 0 && y < Chunk::HEIGHT
-			&& z >= 0 && z < Chunk::DEPTH);
-	};
+    auto cdiv = [](int x, int a) -> int {
+        int res = x / a;
+        int rem = x % a;
+        if (rem != 0 && ((x ^ a) < 0)) {
+            res--;
+        }
+        return res;
+    };
 
-	auto get_voxel = [chunk](int x, int y, int z) -> const voxel & {
-		return chunk->voxels[(y * Chunk::DEPTH + z) * Chunk::WIDTH + x];
-	};
+    auto local = [](int x, int size) -> int {
+        int rem = x % size;
+        return rem < 0 ? rem + size : rem;
+    };
 
-	auto is_blocked = [&](int x, int y, int z) -> bool {
-		return is_in_bounds(x, y, z) && get_voxel(x, y, z).id != 0;
-	};
+    auto get_chunk = [&](int x, int y, int z) -> Chunk * {
+        int cx = cdiv(x, Chunk::WIDTH) + 1;
+        int cy = cdiv(y, Chunk::HEIGHT) + 1;
+        int cz = cdiv(z, Chunk::DEPTH) + 1;
+
+        if (cx < 0 || cx >= 3 || cy < 0 || cy >= 3 || cz < 0 || cz >= 3) {
+            return nullptr;
+        }
+
+        return chunks[(cy * 3 + cz) * 3 + cx];
+    };
+
+    auto is_chunk = [&](int x, int y, int z) -> bool {
+        return get_chunk(x, y, z) != nullptr;
+    };
+
+    auto get_voxel = [&](int x, int y, int z) -> voxel & {
+        auto *chunk = get_chunk(x, y, z);
+        if (!chunk) {
+            static voxel dummy{};
+            return dummy;
+        }
+
+        int lx = local(x, Chunk::WIDTH);
+        int ly = local(y, Chunk::HEIGHT);
+        int lz = local(z, Chunk::DEPTH);
+
+        return chunk->voxels[(ly * Chunk::DEPTH + lz) * Chunk::WIDTH + lx];
+    };
+
+    auto is_blocked = [&](int x, int y, int z) -> bool {
+        auto *chunk = get_chunk(x, y, z);
+        if (!chunk) return true;
+        
+        int lx = local(x, Chunk::WIDTH);
+        int ly = local(y, Chunk::HEIGHT);
+        int lz = local(z, Chunk::DEPTH);
+
+        return chunk->voxels[(ly * Chunk::DEPTH + lz) * Chunk::WIDTH + lx].id != 0;
+    };
 
 	auto push_vertex = [&](float x, float y, float z, float u, float v, float l) {
 		buffer.insert(buffer.end(), { x, y, z, u, v, l });

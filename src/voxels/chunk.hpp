@@ -15,9 +15,12 @@ struct Chunk {
 	static constexpr auto VOLUME = 
 		WIDTH * HEIGHT * DEPTH;
 
+    bool modified = true;
+    int x, y, z;
+
 	std::unique_ptr<voxel[]> voxels;
 
-	Chunk();
+	explicit Chunk(int xpos, int ypos, int zpos);
 	~Chunk() = default;
 
 	Chunk(const Chunk &other) = delete;
