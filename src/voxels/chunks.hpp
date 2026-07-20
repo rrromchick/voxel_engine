@@ -28,4 +28,7 @@ struct Chunks {
 
     voxel *ray_cast(vec3 start, vec3 dir, float max_length, vec3 &end, 
         vec3 &norm, vec3 &iend);
+
+    void write(unsigned char *dest);
+    void read(unsigned char *source);
 };

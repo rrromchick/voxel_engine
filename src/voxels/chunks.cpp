@@ -161,3 +161,24 @@ voxel *Chunks::ray_cast(
     norm.x = norm.y = norm.z = 0.0f;
     return nullptr;
 }
+
+void Chunks::write(unsigned char *dest) {
+    usize index = 0;
+    for (usize i = 0; i < volume; i++) {
+        auto *chunk = chunks[i].get();
+        for (usize j = 0; j < Chunk::VOLUME; j++, index++) {
+            dest[index] = chunk->voxels[j].id;
+        }
+    }
+}
+
+void Chunks::read(unsigned char *source) {
+    usize index = 0;
+    for (usize i = 0; i < volume; i++) {
+        auto *chunk = chunks[i].get();
+        for (usize j = 0; j < Chunk::VOLUME; j++, index++) {
+            chunk->voxels[j].id = source[index];
+        }
+        chunk->modified = true;
+    }
+}

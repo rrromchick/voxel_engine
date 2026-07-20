@@ -15,6 +15,7 @@ Mesh::Mesh(std::span<const float> buffer, std::span<const int> attrs)
 	int offset = 0;
 	for (usize i = 0; i < attrs.size(); i++) {
 		auto size = attrs[i];
+        if (size == 0) break;
 		vao.attr(
 			vbo, static_cast<int>(i), size, GL_FLOAT,
 			stride, offset * sizeof(float));

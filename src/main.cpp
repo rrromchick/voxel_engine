@@ -6,11 +6,13 @@
 #include "gfx/vbo.hpp"
 #include "gfx/mesh.hpp"
 #include "gfx/voxel_renderer.hpp"
+#include "gfx/line_batch.hpp"
 #include "window/window.hpp"
 #include "window/camera.hpp"
 #include "voxels/chunk.hpp"
 #include "voxels/chunks.hpp"
 #include "std.hpp"
+#include "util/file.hpp"
 
 Global global;
 
@@ -47,7 +49,8 @@ int main(int argc, char *argv[]) {
 
 	auto *wnd = global.window.get();
 
-	std::unique_ptr<Shader> shader(Shader::load("res/shaders/main.glslv", "res/shaders/main.glslf"));
+	std::unique_ptr<Shader> shader(
+        Shader::load("res/shaders/main.glslv", "res/shaders/main.glslf"));
 	if (shader == nullptr) {
 		std::cerr << "failed to load shader" << std::endl;
 		return 1;
@@ -57,6 +60,13 @@ int main(int argc, char *argv[]) {
         Shader::load("res/shaders/crosshair.glslv", "res/shaders/crosshair.glslf"));
     if (crosshair_shader == nullptr) {
         std::cerr << "failed to load crosshair shader" << std::endl;
+        return 1;
+    }
+
+    std::unique_ptr<Shader> lines_shader(
+        Shader::load("res/shaders/lines.glslv", "res/shaders/lines.glslf"));
+    if (lines_shader == nullptr) {
+        std::cerr << "failed to load lines shader" << std::endl;
         return 1;
     }
 
@@ -73,6 +83,7 @@ int main(int argc, char *argv[]) {
     }
 	
 	auto renderer = std::make_unique<VoxelRenderer>(1024 * 1024 * 8);
+    auto line_batch = std::make_unique<LineBatch>(4096);
 
 	glClearColor(0.6f, 0.62f, 0.65f, 1);
 
@@ -84,10 +95,10 @@ int main(int argc, char *argv[]) {
     auto crosshair = std::make_unique<Mesh>(vertices, attrs);
 
 	auto camera = std::make_unique<Camera>(
-		glm::vec3(8, 25, 28), glm::radians(90.0f));
+		glm::vec3(0, 0, 20), glm::radians(90.0f));
 	
-	glm::mat4 model(1.0f);
-	model = glm::translate(model, glm::vec3(-8.0f, -8.0f, -8.0f));
+	//glm::mat4 model(1.0f);
+	//model = glm::translate(model, glm::vec3(-8.0f, -8.0f, -8.0f));
 
 	wnd->last_frame = global.time->now();
 	wnd->frame_delta = 0.0f;
@@ -132,6 +143,24 @@ int main(int argc, char *argv[]) {
         }
         if (keyboard->keys[GLFW_KEY_TAB].pressed) {
             wnd->set_grabbed(!global.window->grabbed);
+        }
+
+        if (keyboard->keys[GLFW_KEY_F1].pressed) {
+            auto buffer = std::make_unique<unsigned char[]>(
+                chunks->volume * Chunk::VOLUME);
+            chunks->write(buffer.get());
+            file::write_binary_file("world.bin", reinterpret_cast<const char*>(
+                buffer.get()), chunks->volume * Chunk::VOLUME);
+            std::cout << "world saved in " << (chunks->volume * Chunk::VOLUME) 
+                << " bytes" << std::endl;
+        }
+
+        if (keyboard->keys[GLFW_KEY_F2].pressed) {
+            auto buffer = std::make_unique<unsigned char[]>(
+                chunks->volume * Chunk::VOLUME);
+            file::read_binary_file("world.bin", reinterpret_cast<char *>(
+                buffer.get()), chunks->volume * Chunk::VOLUME);
+            chunks->read(buffer.get());
         }
 
         float dt = static_cast<float>(wnd->frame_delta) / 1'000'000'000.0f;
@@ -234,6 +263,11 @@ int main(int argc, char *argv[]) {
 
         crosshair_shader->use();
         crosshair->draw(GL_LINES);
+
+        lines_shader->use();
+        lines_shader->uniform_matrix("projview", camera->get_projection() * camera->get_view());
+        glLineWidth(2.0f);
+        line_batch->render();
 
 		wnd->swap_buffers();
 		mouse->clear_delta();
