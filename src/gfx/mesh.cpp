@@ -1,4 +1,4 @@
-#include "mesh.hpp"
+#include "Mesh.hpp"
 
 Mesh::Mesh(std::span<const float> buffer, std::span<const int> attrs)
 	: vbo(GL_ARRAY_BUFFER, false) {

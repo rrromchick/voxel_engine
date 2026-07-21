@@ -4,8 +4,8 @@
 #include <glm/glm.hpp>
 #include <glm/ext.hpp>
 #include "typedefs.hpp"
-#include "window.hpp"
-#include "global.hpp"
+#include "Window.hpp"
+#include "Global.hpp"
 #include <cmath>
 
 using namespace glm;

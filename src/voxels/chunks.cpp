@@ -1,5 +1,6 @@
-#include "chunks.hpp"
-#include "chunk.hpp"
+#include "Chunks.hpp"
+#include "Chunk.hpp"
+#include "Lightmap.hpp"
 
 Chunks::Chunks(int w, int h, int d) : w(w), h(h), d(d) {
     volume = w * h * d;
@@ -40,6 +41,41 @@ Chunk *Chunks::get_chunk(int x, int y, int z) {
         return nullptr;
     }
     return chunks[(y * d + z) * w + x].get();
+}
+
+Chunk *Chunks::get_chunk_by_voxel(int x, int y, int z) {
+    int cx = x / Chunk::WIDTH;
+    int cy = y / Chunk::HEIGHT;
+    int cz = z / Chunk::DEPTH;
+
+    if (x < 0) cx--;
+    if (y < 0) cy--;
+    if (z < 0) cz--;
+
+    if (cx < 0 || cy < 0 || cz < 0 || cx >= w || cy >= h || cz >= d) {
+        return nullptr;
+    }
+    return chunks[(cy * d + cz) * w + cx].get();
+}
+
+unsigned char Chunks::get_light(int x, int y, int z, int channel) {
+    int cx = x / Chunk::WIDTH;
+    int cy = y / Chunk::HEIGHT;
+    int cz = z / Chunk::DEPTH;
+
+    if (x < 0) cx--;
+    if (y < 0) cy--;
+    if (z < 0) cz--;
+
+    if (cx < 0 || cy < 0 || cz < 0 || cx >= w || cy >= h || cz >= d) {
+        return 0;
+    }
+
+    auto *chunk = chunks[(cy * d + cz) * w + cx].get();
+    int lx = x - cx * Chunk::WIDTH;
+    int ly = y - cy * Chunk::HEIGHT;
+    int lz = z - cz * Chunk::DEPTH; 
+    return chunk->lightmap->get(lx, ly, lz, channel);
 }
 
 void Chunks::set(int x, int y, int z, int id) {
@@ -134,7 +170,7 @@ voxel *Chunks::ray_cast(
                 iz += stepz;
                 t = tz_max;
                 tz_max += tz_delta;
-                stepped_index = 0;
+                stepped_index = 2;
             }
         } else {
             if (ty_max < tz_max) {

@@ -3,8 +3,8 @@
 #include "std.hpp"
 #include "typedefs.hpp"
 
-namespace file {
-    bool write_binary_file(
+struct File {
+    static bool write_binary_file(
         std::string filename, const char *data, usize size) {
         std::ofstream output(filename, std::ios::binary);
         if (!output.is_open()) {
@@ -16,7 +16,7 @@ namespace file {
         return true;
     }
 
-    bool read_binary_file(std::string filename, char *data, usize size) {
+    static bool read_binary_file(std::string filename, char *data, usize size) {
         std::ifstream output(filename, std::ios::binary);
         if (!output.is_open()) {
             return false;
@@ -26,4 +26,4 @@ namespace file {
         output.close();
         return true;
     }
-}
+};

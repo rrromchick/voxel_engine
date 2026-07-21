@@ -23,8 +23,11 @@ struct Chunks {
     Chunks &operator=(Chunks &&other) = default;
 
     Chunk *get_chunk(int x, int y, int z);
+    Chunk *get_chunk_by_voxel(int x, int y, int z);
     voxel *get(int x, int y, int z);
     void set(int x, int y, int z, int id);
+
+    unsigned char get_light(int x, int y, int z, int channel);
 
     voxel *ray_cast(vec3 start, vec3 dir, float max_length, vec3 &end, 
         vec3 &norm, vec3 &iend);

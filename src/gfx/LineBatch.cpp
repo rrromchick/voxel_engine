@@ -1,5 +1,5 @@
-#include "line_batch.hpp"
-#include "mesh.hpp"
+#include "LineBatch.hpp"
+#include "Mesh.hpp"
 
 #include <glad/glad.h>
 

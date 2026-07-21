@@ -1,9 +1,9 @@
 #pragma once
 
-#include "std.hpp"
-#include "gfx/vao.hpp"
-#include "gfx/vbo.hpp"
+#include "VAO.hpp"
+#include "VBO.hpp"
 #include "typedefs.hpp"
+#include "std.hpp"
 
 struct Mesh {
 	Mesh(std::span<const float> buffer, std::span<const int> attrs);

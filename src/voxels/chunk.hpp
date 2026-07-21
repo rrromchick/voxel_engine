@@ -7,6 +7,8 @@ struct voxel {
 	u8 id;
 };
 
+struct Lightmap;
+
 struct Chunk {
 	static constexpr auto WIDTH = 16;
 	static constexpr auto HEIGHT = 16;
@@ -19,9 +21,10 @@ struct Chunk {
     int x, y, z;
 
 	std::unique_ptr<voxel[]> voxels;
+    std::unique_ptr<Lightmap> lightmap;
 
 	explicit Chunk(int xpos, int ypos, int zpos);
-	~Chunk() = default;
+	~Chunk();
 
 	Chunk(const Chunk &other) = delete;
 	Chunk &operator=(const Chunk &other) = delete;

@@ -1,6 +1,6 @@
 #pragma once
 
-#include "vbo.hpp"
+#include "VBO.hpp"
 
 struct VAO {
 	GLuint handle;
