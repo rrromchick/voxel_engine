@@ -16,7 +16,7 @@ Texture::Texture(const std::string &path) {
 	stbi_image_free(data);
 }
 
-Texture::Texture(const u8 *pixels, uint width, uint height) {
+Texture::Texture(const uint8_t *pixels, unsigned int width, unsigned int height) {
 	this->load_pixels(pixels, width, height);
 }
 
@@ -38,7 +38,7 @@ Texture &Texture::operator=(Texture &&other) noexcept {
 	return *this;
 }
 
-void Texture::load_pixels(const u8 *pixels, usize width, usize height) {
+void Texture::load_pixels(const uint8_t *pixels, std::size_t width, std::size_t height) {
 	this->size = glm::ivec2(width, height);
 	
 	glGenTextures(1, &handle);

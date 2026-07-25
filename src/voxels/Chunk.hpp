@@ -1,17 +1,16 @@
 #pragma once
 
-#include "std.hpp"
-#include "typedefs.hpp"
+#include <memory>
 
 struct voxel {
-	u8 id;
+    uint8_t id;
 };
 
 struct Lightmap;
 
 struct Chunk {
 	static constexpr auto WIDTH = 16;
-	static constexpr auto HEIGHT = 16;
+	static constexpr auto HEIGHT = 128;
 	static constexpr auto DEPTH = 16;
 
 	static constexpr auto VOLUME = 
@@ -30,4 +29,6 @@ struct Chunk {
 	Chunk &operator=(const Chunk &other) = delete;
 	Chunk(Chunk &&other) noexcept = default;
 	Chunk &operator=(Chunk &&other) noexcept = default;
+
+    bool is_empty() const;
 };

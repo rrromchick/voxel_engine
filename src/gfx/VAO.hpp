@@ -1,6 +1,7 @@
 #pragma once
 
 #include "VBO.hpp"
+#include <cstddef>
 
 struct VAO {
 	GLuint handle;
@@ -41,7 +42,7 @@ struct VAO {
 
 	inline void attr(
 		const VBO &vbo, GLuint index, GLint size,
-		GLenum type, GLsizei stride, usize offset) {
+		GLenum type, GLsizei stride, std::size_t offset) {
 		this->bind();
 		vbo.bind();
 		glVertexAttribPointer(

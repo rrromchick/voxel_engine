@@ -5,7 +5,7 @@
 
 constexpr auto LB_VERTEX_SIZE = 3 + 4;
 
-LineBatch::LineBatch(usize capacity) : capacity(capacity), index(0) {
+LineBatch::LineBatch(std::size_t capacity) : capacity(capacity), index(0) {
     constexpr std::array<int, 3> attrs = { 3, 4, 0 };
     buffer = std::make_unique<float[]>(capacity * LB_VERTEX_SIZE * 2);
     mesh = std::make_unique<Mesh>(std::span<const float> { buffer.get(), capacity * LB_VERTEX_SIZE * 2 }, attrs);

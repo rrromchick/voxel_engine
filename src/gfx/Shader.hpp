@@ -3,7 +3,6 @@
 #include <glad/glad.h>
 #include <glm/glm.hpp>
 #include <glm/gtc/type_ptr.hpp>
-#include "typedefs.hpp"
 #include <string>
 #include <memory>
 #include <vector>
@@ -16,7 +15,7 @@
 
 struct Shader {
 	Shader() : id(0) {}
-	Shader(uint id) : id(id) {}
+	Shader(unsigned int id) : id(id) {}
 
 	~Shader() {
 		if (id != 0) glDeleteProgram(id);
@@ -184,10 +183,10 @@ struct Shader {
 	}
 
 private:
-	uint id;
+	unsigned int id;
 	std::unordered_map<std::string, int> uniform_locations;
 
-	uint get_uniform_location(const std::string &name) {
+	unsigned int get_uniform_location(const std::string &name) {
 		auto found = uniform_locations.find(name);
 		if (found == uniform_locations.end()) {
 			int location = glGetUniformLocation(id, name.c_str());
@@ -196,13 +195,4 @@ private:
 		}
 		return found->second;
 	}
-
-	//static inline auto shader_deleter = [](GLuint *shader) {
-	//	if (shader) {
-	//		glDeleteShader(*shader);
-	//		delete shader;
-	//	}
-	//};
-
-	//using ShaderRef = std::unique_ptr<GLuint, decltype(shader_deleter)>;
 };

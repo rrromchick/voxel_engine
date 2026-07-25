@@ -3,9 +3,7 @@
 #include <glad/glad.h>
 #include <glfw/glfw3.h>
 #include <glm/glm.hpp>
-#include "typedefs.hpp"
 #include "Global.hpp"
-#include "std.hpp"
 
 struct Button {
 	bool down, last, last_tick, pressed, pressed_tick;
@@ -32,14 +30,14 @@ struct Mouse {
 	Mouse &operator=(Mouse &&other) = default;
 
 	inline void tick() {
-		for (usize i = 0; i < buttons.size(); i++) {
+		for (std::size_t i = 0; i < buttons.size(); i++) {
 			buttons[i].pressed_tick = buttons[i].down && !buttons[i].last_tick;
 			buttons[i].last_tick = buttons[i].down;
 		}
 	}
 
 	inline void update() {
-		for (usize i = 0; i < buttons.size(); i++) {
+		for (std::size_t i = 0; i < buttons.size(); i++) {
 			buttons[i].pressed = buttons[i].down && !buttons[i].last;
 			buttons[i].last = buttons[i].down;
 		}
@@ -62,14 +60,14 @@ struct Keyboard {
 	Keyboard &operator=(Keyboard &&other) = default;
 
 	inline void tick() {
-		for (usize i = 0; i < keys.size(); i++) {
+		for (std::size_t i = 0; i < keys.size(); i++) {
 			keys[i].pressed_tick = keys[i].down && !keys[i].last_tick;
 			keys[i].last_tick = keys[i].down;
 		}
 	}
 
 	inline void update() {
-		for (usize i = 0; i < keys.size(); i++) {
+		for (std::size_t i = 0; i < keys.size(); i++) {
 			keys[i].pressed = keys[i].down && !keys[i].last;
 			keys[i].last = keys[i].down;
 		}
@@ -77,9 +75,9 @@ struct Keyboard {
 };
 
 struct Window {
-	u64 last_second;
-	u64 frames, fps, last_frame, frame_delta;
-	u64 ticks, tps, tick_remainder;
+	uint64_t last_second;
+	uint64_t frames, fps, last_frame, frame_delta;
+	uint64_t ticks, tps, tick_remainder;
 
 	bool grabbed = false;
 

@@ -1,7 +1,8 @@
 #pragma once
 
-#include "std.hpp"
-#include "typedefs.hpp"
+#include <memory>
+#include <array>
+#include <span>
 
 struct Mesh;
 
@@ -11,7 +12,7 @@ struct Vertex {
 };
 
 struct LineBatch {
-    explicit LineBatch(usize capacity);
+    explicit LineBatch(std::size_t capacity);
     ~LineBatch() = default;
 
     LineBatch(const LineBatch &other) = delete;
@@ -30,6 +31,6 @@ struct LineBatch {
 private:
     std::unique_ptr<Mesh> mesh;
     std::unique_ptr<float[]> buffer;
-    usize index;
-    usize capacity;
+    std::size_t index;
+    std::size_t capacity;
 };

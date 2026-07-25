@@ -1,13 +1,15 @@
 #include "VoxelRenderer.hpp"
 #include "Mesh.hpp"
 #include "Chunk.hpp"
+#include "Block.hpp"
 #include "Lightmap.hpp"
+#include "Global.hpp"
 
-constexpr usize VERTEX_SIZE = 3 + 2 + 4;
+constexpr std::size_t VERTEX_SIZE = 3 + 2 + 4;
 constexpr std::array<int, 4> CHUNK_ATTRS = { 3, 2, 4, 0 };
 constexpr float UV_SIZE = 1.0f / 16.0f;
 
-VoxelRenderer::VoxelRenderer(usize capacity) : capacity(capacity) {
+VoxelRenderer::VoxelRenderer(std::size_t capacity) : capacity(capacity) {
     buffer.reserve(capacity * VERTEX_SIZE * 6);
 }
 
@@ -52,18 +54,6 @@ std::unique_ptr<Mesh> VoxelRenderer::render(
         return target_chunk->lightmap->get(lx, ly, lz, channel);
     };
 
-    auto is_blocked = [&](int x, int y, int z) -> bool {
-        auto *target_chunk = get_chunk(x, y, z);
-        if (!target_chunk) return false;
-
-        int lx = local(x, Chunk::WIDTH);
-        int ly = local(y, Chunk::HEIGHT);
-        int lz = local(z, Chunk::DEPTH);
-
-        return target_chunk->voxels[(ly * Chunk::DEPTH + lz) 
-            * Chunk::WIDTH + lx].id != 0;
-    };
-
     auto get_voxel = [&](int x, int y, int z) -> const voxel & {
         auto *target_chunk = get_chunk(x, y, z);
         if (!target_chunk) {
@@ -78,35 +68,43 @@ std::unique_ptr<Mesh> VoxelRenderer::render(
         return target_chunk->voxels[(ly * Chunk::DEPTH + lz) * Chunk::WIDTH + lx];
     };
 
-    auto compute_vertex_light = 
+    auto is_blocked = [&](int x, int y, int z, unsigned char group) -> bool {
+        auto *target_chunk = get_chunk(x, y, z);
+        if (!target_chunk) return true;
+
+        const auto &vox = get_voxel(x, y, z);
+        return global.blocks[vox.id]->draw_group == group;
+    };
+
+    auto compute_vertex_light =
         [&](int x, int y, int z, int channel,
-            int dx1, int dy1, int dz1,
-            int dx2, int dy2, int dz2,
-            float face_factor) -> float {
+        int dx1, int dy1, int dz1,
+        int dx2, int dy2, int dz2,
+        float face_factor) -> float {
         float center_light = get_light(x, y, z, channel);
         float side1_light = get_light(x + dx1, y + dy1, z + dz1, channel);
         float side2_light = get_light(x + dx2, y + dy2, z + dz2, channel);
-        float corner_light = get_light(x + dx1 + dx2, y + dy1 + dy2, 
+        float corner_light = get_light(x + dx1 + dx2, y + dy1 + dy2,
             z + dz1 + dz2, channel);
 
-        float light_avg = 
-            (corner_light + center_light * 30.0f + side1_light + side2_light)
-                / 5.0f / 15.0f;
+        float light_avg = (center_light + side1_light + side2_light + corner_light) / 4.0f / 15.0f;
+
         return light_avg * face_factor;
     };
 
     struct FaceDirection {
         int dx, dy, dz;
         float factor;
+        int texture_face_idx;
     };
 
     constexpr std::array<FaceDirection, 6> faces = {{
-        { 0,  1,  0, 1.00f }, 
-        { 0, -1,  0, 0.75f }, 
-        { 1,  0,  0, 0.95f },
-        {-1,  0,  0, 0.85f }, 
-        { 0,  0,  1, 0.90f },
-        { 0,  0, -1, 0.80f }
+        { 0, 1, 0, 1.00f, 3 },
+        { 0, -1, 0, 0.75f, 2 },
+        { 1, 0, 0, 0.95f, 1 },
+        { -1, 0, 0, 0.85f, 0 },
+        { 0, 0, 1, 0.90f, 5 },
+        { 0, 0, -1, 0.80f, 4 }
     }};
 
     struct VertexDef {
@@ -118,52 +116,52 @@ std::unique_ptr<Mesh> VoxelRenderer::render(
 
     constexpr std::array<std::array<VertexDef, 6>, 6> face_vertices = {{
         {{
-            { -0.5f,  0.5f, -0.5f, 1.0f, 0.0f, -1, 0,  0,  0, 0, -1 },
-            { -0.5f,  0.5f,  0.5f, 1.0f, 1.0f, -1, 0,  0,  0, 0,  1 },
-            {  0.5f,  0.5f,  0.5f, 0.0f, 1.0f,  1, 0,  0,  0, 0,  1 },
-            { -0.5f,  0.5f, -0.5f, 1.0f, 0.0f, -1, 0,  0,  0, 0, -1 },
-            {  0.5f,  0.5f,  0.5f, 0.0f, 1.0f,  1, 0,  0,  0, 0,  1 },
-            {  0.5f,  0.5f, -0.5f, 0.0f, 0.0f,  1, 0,  0,  0, 0, -1 }
+            { -0.5f, 0.5f, -0.5f, 1.0f, 0.0f, -1, 0, 0, 0, 0, -1 },
+            { -0.5f, 0.5f, 0.5f, 1.0f, 1.0f, -1, 0, 0, 0, 0, 1 },
+            { 0.5f, 0.5f, 0.5f, 0.0f, 1.0f, 1, 0, 0, 0, 0, 1 },
+            { -0.5f, 0.5f, -0.5f, 1.0f, 0.0f, -1, 0, 0, 0, 0, -1 },
+            { 0.5f, 0.5f, 0.5f, 0.0f, 1.0f, 1, 0, 0, 0, 0, 1 },
+            { 0.5f, 0.5f, -0.5f, 0.0f, 0.0f, 1, 0, 0, 0, 0, -1 }
         }},
         {{
-            { -0.5f, -0.5f, -0.5f, 0.0f, 0.0f, -1, 0,  0,   0, 0, -1 }, 
-            {  0.5f, -0.5f,  0.5f, 1.0f, 1.0f,  1, 0,  0,   0, 0,  1 }, 
-            { -0.5f, -0.5f,  0.5f, 0.0f, 1.0f, -1, 0,  0,   0, 0,  1 }, 
-            { -0.5f, -0.5f, -0.5f, 0.0f, 0.0f, -1, 0,  0,   0, 0, -1 }, 
-            {  0.5f, -0.5f, -0.5f, 1.0f, 0.0f,  1, 0,  0,   0, 0, -1 }, 
-            {  0.5f, -0.5f,  0.5f, 1.0f, 1.0f,  1, 0,  0,   0, 0,  1 }  
+            { -0.5f, -0.5f, -0.5f, 0.0f, 0.0f, -1, 0, 0, 0, 0, -1 },
+            { 0.5f, -0.5f, 0.5f, 1.0f, 1.0f, 1, 0, 0, 0, 0, 1 },
+            { -0.5f, -0.5f, 0.5f, 0.0f, 1.0f, -1, 0, 0, 0, 0, 1 },
+            { -0.5f, -0.5f, -0.5f, 0.0f, 0.0f, -1, 0, 0, 0, 0, -1 },
+            { 0.5f, -0.5f, -0.5f, 1.0f, 0.0f, 1, 0, 0, 0, 0, -1 },
+            { 0.5f, -0.5f, 0.5f, 1.0f, 1.0f, 1, 0, 0, 0, 0, 1 }
         }},
         {{
-            {  0.5f, -0.5f, -0.5f, 1.0f, 0.0f,  0, -1, 0,  0, 0, -1 },
-            {  0.5f,  0.5f, -0.5f, 1.0f, 1.0f,  0,  1, 0,  0, 0, -1 },
-            {  0.5f,  0.5f,  0.5f, 0.0f, 1.0f,  0,  1, 0,  0, 0,  1 },
-            {  0.5f, -0.5f, -0.5f, 1.0f, 0.0f,  0, -1, 0,  0, 0, -1 },
-            {  0.5f,  0.5f,  0.5f, 0.0f, 1.0f,  0,  1, 0,  0, 0,  1 },
-            {  0.5f, -0.5f,  0.5f, 0.0f, 0.0f,  0, -1, 0,  0, 0,  1 }
+            { 0.5f, -0.5f, -0.5f, 1.0f, 0.0f, 0, -1, 0, 0, 0, -1 },
+            { 0.5f, 0.5f, -0.5f, 1.0f, 1.0f, 0, 1, 0, 0, 0, -1 },
+            { 0.5f, 0.5f, 0.5f, 0.0f, 1.0f, 0, 1, 0, 0, 0, 1 },
+            { 0.5f, -0.5f, -0.5f, 1.0f, 0.0f, 0, -1, 0, 0, 0, -1 },
+            { 0.5f, 0.5f, 0.5f, 0.0f, 1.0f, 0, 1, 0, 0, 0, 1 },
+            { 0.5f, -0.5f, 0.5f, 0.0f, 0.0f, 0, -1, 0, 0, 0, 1 }
         }},
         {{
-            { -0.5f, -0.5f, -0.5f, 0.0f, 0.0f,  0, -1, 0,  0, 0, -1 },
-            { -0.5f,  0.5f,  0.5f, 1.0f, 1.0f,  0,  1, 0,  0, 0,  1 },
-            { -0.5f,  0.5f, -0.5f, 0.0f, 1.0f,  0,  1, 0,  0, 0, -1 },
-            { -0.5f, -0.5f, -0.5f, 0.0f, 0.0f,  0, -1, 0,  0, 0, -1 },
-            { -0.5f, -0.5f,  0.5f, 1.0f, 0.0f,  0, -1, 0,  0, 0,  1 },
-            { -0.5f,  0.5f,  0.5f, 1.0f, 1.0f,  0,  1, 0,  0, 0,  1 }
+            { -0.5f, -0.5f, -0.5f, 0.0f, 0.0f, 0, -1, 0, 0, 0, -1 },
+            { -0.5f, 0.5f, 0.5f, 1.0f, 1.0f, 0, 1, 0, 0, 0, 1 },
+            { -0.5f, 0.5f, -0.5f, 0.0f, 1.0f, 0, 1, 0, 0, 0, -1 },
+            { -0.5f, -0.5f, -0.5f, 0.0f, 0.0f, 0, -1, 0, 0, 0, -1 },
+            { -0.5f, -0.5f, 0.5f, 1.0f, 0.0f, 0, -1, 0, 0, 0, 1 },
+            { -0.5f, 0.5f, 0.5f, 1.0f, 1.0f, 0, 1, 0, 0, 0, 1 }
         }},
         {{
-            { -0.5f, -0.5f,  0.5f, 0.0f, 0.0f, -1,  0, 0,  0, -1, 0 },
-            {  0.5f,  0.5f,  0.5f, 1.0f, 1.0f,  1,  0, 0,  0,  1, 0 },
-            { -0.5f,  0.5f,  0.5f, 0.0f, 1.0f, -1,  0, 0,  0,  1, 0 },
-            { -0.5f, -0.5f,  0.5f, 0.0f, 0.0f, -1,  0, 0,  0, -1, 0 },
-            {  0.5f, -0.5f,  0.5f, 1.0f, 0.0f,  1,  0, 0,  0, -1, 0 },
-            {  0.5f,  0.5f,  0.5f, 1.0f, 1.0f,  1,  0, 0,  0,  1, 0 }
+            { -0.5f, -0.5f, 0.5f, 0.0f, 0.0f, -1, 0, 0, 0, -1, 0 },
+            { 0.5f, 0.5f, 0.5f, 1.0f, 1.0f, 1, 0, 0, 0, 1, 0 },
+            { -0.5f, 0.5f, 0.5f, 0.0f, 1.0f, -1, 0, 0, 0, 1, 0 },
+            { -0.5f, -0.5f, 0.5f, 0.0f, 0.0f, -1, 0, 0, 0, -1, 0 },
+            { 0.5f, -0.5f, 0.5f, 1.0f, 0.0f, 1, 0, 0, 0, -1, 0 },
+            { 0.5f, 0.5f, 0.5f, 1.0f, 1.0f, 1, 0, 0, 0, 1, 0 }
         }},
         {{
-            { -0.5f, -0.5f, -0.5f, 1.0f, 0.0f, -1,  0, 0,  0, -1, 0 },
-            { -0.5f,  0.5f, -0.5f, 1.0f, 1.0f, -1,  0, 0,  0,  1, 0 },
-            {  0.5f,  0.5f, -0.5f, 0.0f, 1.0f,  1,  0, 0,  0,  1, 0 },
-            { -0.5f, -0.5f, -0.5f, 1.0f, 0.0f, -1,  0, 0,  0, -1, 0 },
-            {  0.5f,  0.5f, -0.5f, 0.0f, 1.0f,  1,  0, 0,  0,  1, 0 },
-            {  0.5f, -0.5f, -0.5f, 0.0f, 0.0f,  1,  0, 0,  0, -1, 0 }
+            { -0.5f, -0.5f, -0.5f, 1.0f, 0.0f, -1, 0, 0, 0, -1, 0 },
+            { -0.5f, 0.5f, -0.5f, 1.0f, 1.0f, -1, 0, 0, 0, 1, 0 },
+            { 0.5f, 0.5f, -0.5f, 0.0f, 1.0f, 1, 0, 0, 0, 1, 0 },
+            { -0.5f, -0.5f, -0.5f, 1.0f, 0.0f, -1, 0, 0, 0, -1, 0 },
+            { 0.5f, 0.5f, -0.5f, 0.0f, 1.0f, 1, 0, 0, 0, 1, 0 },
+            { 0.5f, -0.5f, -0.5f, 0.0f, 0.0f, 1, 0, 0, 0, -1, 0 }
         }}
     }};
 
@@ -175,18 +173,22 @@ std::unique_ptr<Mesh> VoxelRenderer::render(
 
                 if (id == 0) continue;
 
-                float u_base = (id % 16) * UV_SIZE;
-                float v_base = 1.0f - ((1 + id / 16) * UV_SIZE);
+                auto *block = global.blocks[id].get();
+                unsigned char group = block->draw_group;
 
-                for (usize f = 0; f < 6; f++) {
+                for (std::size_t f = 0; f < 6; f++) {
                     const auto &face = faces[f];
 
                     int target_x = x + face.dx;
                     int target_y = y + face.dy;
                     int target_z = z + face.dz;
 
-                    if (!is_blocked(target_x, target_y, target_z)) {
-                        for (usize v_idx = 0; v_idx < 6; v_idx++) {
+                    if (!is_blocked(target_x, target_y, target_z, group)) {
+                        unsigned int tex_idx = block->texture_faces[face.texture_face_idx];
+                        float u_base = (tex_idx % 16) * UV_SIZE;
+                        float v_base = 1.0f - ((1 + tex_idx / 16) * UV_SIZE);
+
+                        for (std::size_t v_idx = 0; v_idx < 6; v_idx++) {
                             const auto &v_data = face_vertices[f][v_idx];
 
                             float final_u = u_base + (v_data.u_mod * UV_SIZE);

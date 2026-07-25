@@ -2,8 +2,7 @@
 
 #include "VAO.hpp"
 #include "VBO.hpp"
-#include "typedefs.hpp"
-#include "std.hpp"
+#include <span>
 
 struct Mesh {
 	Mesh(std::span<const float> buffer, std::span<const int> attrs);
@@ -15,15 +14,15 @@ struct Mesh {
 	Mesh &operator=(Mesh &&other) noexcept = default;
 
 	void reload(std::span<const float> buffer);
-	void draw(uint primitive);
+	void draw(unsigned int primitive);
 
-	inline usize get_vertices_count() const {
+	inline std::size_t get_vertices_count() const {
 		return vertices_count;
 	}
 
 private:
 	VAO vao;
 	VBO vbo;
-	usize vertices_count;
+	std::size_t vertices_count;
 	int vertex_size;
 };

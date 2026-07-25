@@ -3,7 +3,6 @@
 #define GLM_FORCE_RADIANS
 #include <glm/glm.hpp>
 #include <glm/ext.hpp>
-#include "typedefs.hpp"
 #include "Window.hpp"
 #include "Global.hpp"
 #include <cmath>

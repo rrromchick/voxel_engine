@@ -1,20 +1,20 @@
 #pragma once
 
-#include "std.hpp"
-#include "typedefs.hpp"
+#include <functional>
+#include <stdint.h>
 
-#define TICKS_PER_SECOND (120)
+constexpr auto TICKS_PER_SECOND = 120;
 
 struct Time {
-	using NowFn = std::function<u64(void)>;
+	using NowFn = std::function<uint64_t(void)>;
 	using TickFn = std::function<void(void)>;
 
-	static constexpr u64
+	static constexpr uint64_t
 		NANOS_PER_SECOND = 1000000000,
 		NANOS_PER_MILLIS = 1000000,
 		MILLIS_PER_SECOND = 1000,
 		NANOS_PER_TICK = (NANOS_PER_SECOND / TICKS_PER_SECOND),
-		TICK_MAX = std::numeric_limits<u64>::max();
+		TICK_MAX = std::numeric_limits<uint64_t>::max();
 
 	template <typename T>
 	static inline auto to_millis(T nanos) {
@@ -26,10 +26,10 @@ struct Time {
 		return nanos / static_cast<T>(NANOS_PER_SECOND);
 	}
 
-	u64 time, last_frame, last_second;
-	u64 ticks, second_ticks, tick_remainder, frame_ticks;
-	u64 frames, second_frames, fps;
-	u64 delta;
+	uint64_t time, last_frame, last_second;
+	uint64_t ticks, second_ticks, tick_remainder, frame_ticks;
+	uint64_t frames, second_frames, fps;
+	uint64_t delta;
 
 	NowFn now;
 
@@ -47,6 +47,6 @@ struct Time {
 		last_second = this->now();
 	}
 
-	void tick(TickFn &&tick);
-	void update();
+    void tick(TickFn &&tick) {}
+    void update() {}
 };

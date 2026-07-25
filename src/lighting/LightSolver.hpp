@@ -1,7 +1,6 @@
 #pragma once
 
-#include "std.hpp"
-#include "typedefs.hpp"
+#include <queue>
 
 struct LightEntry {
     int x, y, z;

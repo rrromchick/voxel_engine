@@ -1,8 +1,8 @@
 #pragma once
 
 #include <glad/glad.h>
-#include "typedefs.hpp"
 #include <assert.h>
+#include <cstddef>
 
 struct VBO {
 	GLuint handle;
@@ -42,7 +42,7 @@ struct VBO {
 		glBindBuffer(this->type, this->handle);
 	}
 
-	inline void data(const void *data, usize size_bytes) {
+	inline void data(const void *data, std::size_t size_bytes) {
 		this->bind();
 		glBufferData(
 			type,
@@ -51,7 +51,7 @@ struct VBO {
 			dynamic ? GL_DYNAMIC_DRAW : GL_STATIC_DRAW);
 	}
 
-	inline void sub_data(const void *data, usize offset, usize size_bytes) {
+	inline void sub_data(const void *data, std::size_t offset, std::size_t size_bytes) {
 		this->bind();
 		glBufferSubData(type, offset, size_bytes, data);
 	}

@@ -13,7 +13,7 @@ Mesh::Mesh(std::span<const float> buffer, std::span<const int> attrs)
 	vbo.data(buffer.data(), buffer.size_bytes());
 
 	int offset = 0;
-	for (usize i = 0; i < attrs.size(); i++) {
+	for (std::size_t i = 0; i < attrs.size(); i++) {
 		auto size = attrs[i];
         if (size == 0) break;
 		vao.attr(
@@ -30,7 +30,7 @@ void Mesh::reload(std::span<const float> buffer) {
 	this->vertices_count = buffer.size() / vertex_size;
 }
 
-void Mesh::draw(uint primitive) {
+void Mesh::draw(unsigned int primitive) {
 	vao.bind();
 	glDrawArrays(primitive, 0, vertices_count);
 	vao.unbind();

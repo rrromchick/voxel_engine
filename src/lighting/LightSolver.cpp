@@ -3,6 +3,7 @@
 #include "Chunks.hpp"
 #include "Chunk.hpp"
 #include "Global.hpp"
+#include "Block.hpp"
 
 void LightSolver::add(int x, int y, int z, int emission) {
     if (emission <= 1) return;
@@ -17,7 +18,10 @@ void LightSolver::add(int x, int y, int z, int emission) {
 }
 
 void LightSolver::add(int x, int y, int z) {
-    add(x, y, z, global.chunks->get_light(x, y, z, channel));
+    int light = global.chunks->get_light(x, y, z, channel);
+    if (light > 1) {
+        add(x, y, z, light);
+    }
 }
 
 void LightSolver::remove(int x, int y, int z) {
@@ -54,7 +58,7 @@ void LightSolver::solve() {
         auto entry = rem_queue.front();
         rem_queue.pop();
 
-        for (usize i = 0; i < 6; i++) {
+        for (std::size_t i = 0; i < 6; i++) {
             int x = entry.x + coords[i * 3 + 0];
             int y = entry.y + coords[i * 3 + 1];
             int z = entry.z + coords[i * 3 + 2];
@@ -83,7 +87,7 @@ void LightSolver::solve() {
             continue;
         }
 
-        for (usize i = 0; i < 6; i++) {
+        for (std::size_t i = 0; i < 6; i++) {
             int x = entry.x + coords[i * 3 + 0];
             int y = entry.y + coords[i * 3 + 1];
             int z = entry.z + coords[i * 3 + 2];
@@ -91,13 +95,14 @@ void LightSolver::solve() {
             if (chunk) {
                 auto light = chunks->get_light(x, y, z, channel);
                 auto *v = chunks->get(x, y, z);
+                auto *block = global.blocks[v->id].get();
 
-                if (v->id == 0 && light + 2 <= entry.light) {
+                if (block->light_passing && light < entry.light - 1) {
                     chunk->lightmap->set(x - chunk->x * Chunk::WIDTH,
-                        y - chunk->y * Chunk::HEIGHT, z - chunk->z * Chunk::DEPTH, 
+                        y - chunk->y * Chunk::HEIGHT, z - chunk->z * Chunk::DEPTH,
                         channel, entry.light - 1);
                     chunk->modified = true;
-                    
+
                     LightEntry nentry { x, y, z, entry.light - 1 };
                     add_queue.push(nentry);
                 }

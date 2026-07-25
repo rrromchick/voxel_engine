@@ -1,13 +1,14 @@
 #pragma once
 
-#include "std.hpp"
-#include "typedefs.hpp"
+#include <vector>
+#include <array>
+#include <memory>
 
 struct Chunk;
 struct Mesh;
 
 struct VoxelRenderer {
-	explicit VoxelRenderer(usize capacity);
+	explicit VoxelRenderer(std::size_t capacity);
 	~VoxelRenderer() = default;
 
 	VoxelRenderer(const VoxelRenderer &other) = delete;
@@ -19,6 +20,6 @@ struct VoxelRenderer {
         const std::vector<Chunk*> &chunks);
 
 private:
-	usize capacity;
+	std::size_t capacity;
 	std::vector<float> buffer;
 };

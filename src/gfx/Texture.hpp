@@ -2,14 +2,14 @@
 
 #include <glad/glad.h>
 #include <glm/glm.hpp>
-#include "typedefs.hpp"
-#include "std.hpp"
+#include <string>
+#include <memory>
 
 struct Texture {
 	Texture() : handle(0), size(0) {}
 
 	Texture(const std::string &path);
-	Texture(const u8 *pixels, uint width, uint height);
+	Texture(const uint8_t *pixels, unsigned int width, unsigned int height);
 	~Texture();
 
 	Texture(const Texture &other) = delete;
@@ -21,7 +21,7 @@ struct Texture {
 	inline glm::ivec2 get_size() const { return size; }
 
 private:
-	void load_pixels(const u8 *pixels, usize width, usize height);
+	void load_pixels(const uint8_t *pixels, std::size_t width, std::size_t height);
 
 	GLuint handle{ 0 };
 	glm::ivec2 size{};

@@ -14,14 +14,17 @@
 #include "File.hpp"
 #include "LightSolver.hpp"
 #include "Lightmap.hpp"
-#include "std.hpp"
+#include "Lighting.hpp"
+#include "Block.hpp"
+#include "WorldFiles.hpp"
+#include "WorldGenerator.hpp"
 
 Global global;
 
 constexpr auto WIDTH = 1280;
 constexpr auto HEIGHT = 720;
 
-constexpr f32 vertices[] = {
+constexpr float vertices[] = {
     -0.01f, -0.01f,
     0.01f, 0.01f,
 
@@ -69,18 +72,45 @@ int main(int argc, char *argv[]) {
 		return 1;
 	}
 
-    global.chunks = std::make_unique<Chunks>(16, 16, 16);
+    // AIR
+    global.blocks[0] = std::make_unique<Block>(0, 0);
+    global.blocks[0].get()->draw_group = 1;
+    global.blocks[0].get()->light_passing = true;
+
+    // STONE
+    global.blocks[1] = std::make_unique<Block>(1, 2);
+    
+    // GRASS
+    global.blocks[2] = std::make_unique<Block>(2, 4);
+    global.blocks[2].get()->texture_faces[2] = 2;
+    global.blocks[2].get()->texture_faces[3] = 1;
+
+    // LAMP
+    global.blocks[3] = std::make_unique<Block>(3, 3);
+    global.blocks[3].get()->emission[0] = 10;
+    global.blocks[3].get()->emission[1] = 0;
+    global.blocks[3].get()->emission[2] = 0;
+
+    // GLASS
+    global.blocks[4] = std::make_unique<Block>(4, 5);
+    global.blocks[4].get()->draw_group = 2;
+    global.blocks[4].get()->light_passing = true;
+
+    // PLANKS
+    global.blocks[5] = std::make_unique<Block>(5, 6);
+
+    global.generator = std::make_unique<WorldGenerator>();
+    global.world_files = std::make_unique<WorldFiles>("world/", 24 * 1024 * 1024);
+    global.chunks = std::make_unique<Chunks>(16 * 4, 1, 16 * 4, 0, 0, 0);
     auto *chunks = global.chunks.get();
 
-    std::vector<std::unique_ptr<Mesh>> meshes(chunks->volume);
-    for (usize i = 0; i < chunks->volume; i++) {
-        meshes[i] = nullptr;
-    }
-	
 	auto renderer = std::make_unique<VoxelRenderer>(1024 * 1024 * 8);
     auto line_batch = std::make_unique<LineBatch>(4096);
 
-	glClearColor(0.0f, 0.0f, 0.1f, 1);
+    global.lighting = std::make_unique<Lighting>();
+    auto *lighting = global.lighting.get();
+
+	glClearColor(0.0f, 0.0f, 0.0f, 1);
 
 	glEnable(GL_CULL_FACE);
 	glEnable(GL_DEPTH_TEST);
@@ -88,77 +118,20 @@ int main(int argc, char *argv[]) {
 	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
     auto crosshair = std::make_unique<Mesh>(vertices, attrs);
-
 	auto camera = std::make_unique<Camera>(
-		glm::vec3(0, 0, 20), glm::radians(90.0f));
+		glm::vec3(32, 32, 32), glm::radians(90.0f));
 
 	wnd->last_frame = global.time->now();
 	wnd->frame_delta = 0.0f;
 
-	float cam_x = glm::radians(-90.0f);
-	float cam_y = glm::radians(-40.0f);
+	float cam_x = 0.0f;
+	float cam_y = 0.0f;
 
 	float speed = 15;
 
     int choosen_block = 1;
 
-    auto solver_r = std::make_unique<LightSolver>(0);
-    auto solver_g = std::make_unique<LightSolver>(1);
-    auto solver_b = std::make_unique<LightSolver>(2);
-    auto solver_s = std::make_unique<LightSolver>(3);
-
-    for (int y = 0; y < chunks->h * Chunk::HEIGHT; y++) {
-        for (int z = 0; z < chunks->d * Chunk::DEPTH; z++) {
-            for (int x = 0; x < chunks->w * Chunk::WIDTH; x++) {
-                auto *vox = chunks->get(x, y, z);
-                if (vox->id == 3) {
-                    solver_r->add(x, y, z, 15);
-                    solver_g->add(x, y, z, 15);
-                    solver_b->add(x, y, z, 15);
-                }
-            }
-        }
-    }
-
-    for (int z = 0; z < chunks->d * Chunk::DEPTH; z++) {
-        for (int x = 0; x < chunks->w * Chunk::WIDTH; x++) {
-            for (int y = chunks->h * Chunk::HEIGHT - 1; y >= 0; y--) {
-                auto *vox = chunks->get(x, y, z);
-                if (vox->id != 0) {
-                    break;
-                }
-                chunks->get_chunk_by_voxel(x, y, z)->lightmap->set_s(
-                    x % Chunk::WIDTH, y % Chunk::HEIGHT, z % Chunk::DEPTH, 0xF);
-            }
-        }
-    }
-
-    for (int z = 0; z < chunks->d * Chunk::DEPTH; z++) {
-        for (int x = 0; x < chunks->w * Chunk::WIDTH; x++) {
-            for (int y = chunks->h * Chunk::HEIGHT - 1; y >= 0; y--) {
-                auto *vox = chunks->get(x, y, z);
-                if (vox->id != 0) {
-                    break;
-                }
-
-                if (chunks->get_light(x - 1, y, z, 3) == 0 ||
-                    chunks->get_light(x + 1, y, z, 3) == 0 ||
-                    chunks->get_light(x, y - 1, z, 3) == 0 ||
-                    chunks->get_light(x, y + 1, z, 3) == 0 ||
-                    chunks->get_light(x, y, z - 1, 3) == 0 ||
-                    chunks->get_light(x, y, z + 1, 3) == 0) {
-                    solver_s->add(x, y, z);
-                }
-                chunks->get_chunk_by_voxel(x, y, z)->lightmap->set_s(
-                    x % Chunk::WIDTH, y % Chunk::HEIGHT, z % Chunk::DEPTH, 0xF);
-            }
-        }
-    }
-
-    solver_r->solve();
-    solver_g->solve();
-    solver_b->solve();
-    solver_s->solve();
+    glfwSwapInterval(0);
 
 	while (!wnd->is_should_close()) {
 		auto current_time = global.time->now();
@@ -178,8 +151,8 @@ int main(int argc, char *argv[]) {
         auto *keyboard = wnd->get_keyboard();
         auto *mouse = wnd->get_mouse();
 
-        const u64 NANOS_PER_TICK = (Time::NANOS_PER_SECOND / 60);
-        u64 tick_time = wnd->frame_delta + wnd->tick_remainder;
+        const uint64_t NANOS_PER_TICK = (Time::NANOS_PER_SECOND / 60);
+        uint64_t tick_time = wnd->frame_delta + wnd->tick_remainder;
         while (tick_time > NANOS_PER_TICK) {
             wnd->ticks++;
             mouse->tick();
@@ -188,9 +161,9 @@ int main(int argc, char *argv[]) {
             tick_time -= NANOS_PER_TICK;
         }
 
-        wnd->tick_remainder = std::max<u64>(tick_time, 0);
+        wnd->tick_remainder = std::max<uint64_t>(tick_time, 0);
 
-        for (int i = 1; i < 4; i++) {
+        for (int i = 1; i < 6; i++) {
             if (keyboard->keys[GLFW_KEY_0 + i].pressed) {
                 choosen_block = i;
             }
@@ -203,41 +176,34 @@ int main(int argc, char *argv[]) {
             wnd->set_grabbed(!global.window->grabbed);
         }
 
-        if (keyboard->keys[GLFW_KEY_F1].pressed) {
-            auto buffer = std::make_unique<unsigned char[]>(
-                chunks->volume * Chunk::VOLUME);
-            chunks->write(buffer.get());
-            File::write_binary_file("world.bin", reinterpret_cast<const char*>(
-                buffer.get()), chunks->volume * Chunk::VOLUME);
-            std::cout << "world saved in " << (chunks->volume * Chunk::VOLUME) 
-                << " bytes" << std::endl;
-        }
+        //if (keyboard->keys[GLFW_KEY_F1].pressed) {
+        //    const std::size_t buffer_size = chunks->volume * Chunk::VOLUME;
+        //    auto buffer = std::make_unique<uint8_t[]>(buffer_size);
 
-        if (keyboard->keys[GLFW_KEY_F2].pressed) {
-            auto buffer = std::make_unique<unsigned char[]>(
-                chunks->volume * Chunk::VOLUME);
-            File::read_binary_file("world.bin", reinterpret_cast<char *>(
-                buffer.get()), chunks->volume * Chunk::VOLUME);
-            chunks->read(buffer.get());
+        //    chunks->write(buffer.get());
 
-            for (int y = 0; y < chunks->h * Chunk::HEIGHT; y++) {
-                for (int z = 0; z < chunks->d * Chunk::DEPTH; z++) {
-                    for (int x = 0; x < chunks->w * Chunk::WIDTH; x++) {
-                        auto *vox = chunks->get(x, y, z);
-                        if (vox->id == 3) {
-                            solver_r->add(x, y, z, 15);
-                            solver_g->add(x, y, z, 15);
-                            solver_b->add(x, y, z, 15);
-                        }
-                    }
-                }
-            }
+        //    std::span<const uint8_t> buffer_span { buffer.get(), buffer_size };
+        //    File::write_binary_file("world.bin", buffer_span);
 
-            solver_r->solve();
-            solver_g->solve();
-            solver_b->solve();
-            solver_s->solve();
-        }
+        //    std::cout << "world saved in " << buffer_size << " bytes" << std::endl;
+        //}
+
+        //if (keyboard->keys[GLFW_KEY_F2].pressed) {
+        //    const std::size_t buffer_size = chunks->volume * Chunk::VOLUME;
+        //    auto buffer = std::make_unique<uint8_t[]>(buffer_size);
+
+        //    std::span<uint8_t> buffer_span { buffer.get(), buffer_size };
+
+        //    if (File::read_binary_file("world.bin", buffer_span)) {
+        //        chunks->read(buffer.get());
+
+        //        lighting->clear();
+        //        lighting->on_world_loaded();
+        //        std::cout << "world loaded (" << buffer_size << " bytes)" << std::endl;
+        //    } else {
+        //        std::cerr << "failed to load world.bin" << std::endl;
+        //    }
+        //}
 
         float dt = static_cast<float>(wnd->frame_delta) / 1'000'000'000.0f;
 
@@ -253,6 +219,10 @@ int main(int argc, char *argv[]) {
         if (keyboard->keys[GLFW_KEY_A].down) {
             camera->position -= camera->right * dt * speed;
         }
+
+        chunks->set_center(camera->position.x, 0, camera->position.z);
+        chunks->build_meshes(renderer.get());
+        chunks->load_visible(global.world_files.get());
 
         if (wnd->grabbed) {
             cam_y += -wnd->get_mouse()->delta.y / wnd->get_size().y * 2;
@@ -284,40 +254,7 @@ int main(int argc, char *argv[]) {
                     auto y = static_cast<int>(iend.y);
                     auto z = static_cast<int>(iend.z);
                     chunks->set(x, y, z, 0);
-
-                    solver_r->remove(x, y, z);
-                    solver_g->remove(x, y, z);
-                    solver_b->remove(x, y, z);
-
-                    solver_r->solve();
-                    solver_g->solve();
-                    solver_b->solve();
-
-                    if (chunks->get_light(x, y + 1, z, 3) == 0xF) {
-                        for (int i = y; i >= 0; i--) {
-                            if (chunks->get(x, i, z)->id != 0) {
-                                break;
-                            }
-                            solver_s->add(x, i, z, 0xF);
-                        }
-                    }
-
-                    constexpr std::array<std::array<int, 3>, 6> dirs = {{
-                        { -1, 0, 0 }, { 1, 0, 0 }, { 0, -1, 0 }, { 0, 1, 0 },
-                        { 0, 0, -1 }, { 0, 0, 1 }
-                    }};
-
-                    for (const auto &dir : dirs) {
-                        solver_r->add(x + dir[0], y + dir[1], z + dir[2]);
-                        solver_g->add(x + dir[0], y + dir[1], z + dir[2]);
-                        solver_b->add(x + dir[0], y + dir[1], z + dir[2]);
-                        solver_s->add(x + dir[0], y + dir[1], z + dir[2]);
-                    }
-
-                    solver_r->solve();
-                    solver_g->solve();
-                    solver_b->solve();
-                    solver_s->solve();
+                    lighting->on_block_set(x, y, z, 0);
                 }
 
                 if (mouse->buttons[GLFW_MOUSE_BUTTON_2].pressed) {
@@ -325,68 +262,9 @@ int main(int argc, char *argv[]) {
                     auto y = static_cast<int>(iend.y) + static_cast<int>(norm.y);
                     auto z = static_cast<int>(iend.z) + static_cast<int>(norm.z);
                     chunks->set(x, y, z, choosen_block);
-
-                    solver_r->remove(x, y, z);
-                    solver_g->remove(x, y, z);
-                    solver_b->remove(x, y, z);
-                    solver_s->remove(x, y, z);
-                   
-                    for (int i = y - 1; i >= 0; i--) {
-                        solver_s->remove(x, i, z);
-                        if (i == 0 || chunks->get(x, i - 1, z)->id != 0) {
-                            break;
-                        }
-                    }
-
-                    solver_r->solve();
-                    solver_g->solve();
-                    solver_b->solve();
-                    solver_s->solve();
-                    
-                    if (choosen_block == 3) {
-                        solver_r->add(x, y, z, 10);
-                        solver_g->add(x, y, z, 10);
-                        solver_b->add(x, y, z, 0);
-                        solver_r->solve();
-                        solver_g->solve();
-                        solver_b->solve();
-                    }
+                    lighting->on_block_set(x, y, z, choosen_block);
                 }
             }
-        }
-
-        std::vector<Chunk*> closes(27);
-        for (usize i = 0; i < chunks->volume; i++) {
-            auto *chunk = chunks->chunks[i].get();
-            if (!chunk->modified) {
-                continue;
-            }
-            chunk->modified = false;
-            if (meshes[i] != nullptr) {
-                meshes[i] = nullptr;
-            }
-
-            for (usize i = 0; i < closes.size(); i++) {
-                closes[i] = nullptr;
-            }
-
-            for (usize j = 0; j < chunks->volume; j++) {
-                auto *other = chunks->chunks[j].get();
-
-                int ox = other->x - chunk->x;
-                int oy = other->y - chunk->y;
-                int oz = other->z - chunk->z;
-
-                if (std::abs(ox) > 1 || std::abs(oy) > 1 || std::abs(oz) > 1) {
-                    continue;
-                }
-
-                ox += 1;
-                oy += 1;
-                oz += 1;
-                closes[(oy * 3 + oz) * 3 + ox] = other;
-            }
-            meshes[i] = renderer.get()->render(chunk, closes);
         }
 
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
@@ -395,10 +273,13 @@ int main(int argc, char *argv[]) {
 		shader->uniform_matrix("projview", camera->get_projection() * camera->get_view());
 		texture->bind();
         mat4 model(1.0f);
-        for (usize i = 0; i < chunks->volume; i++) {
+        for (std::size_t i = 0; i < chunks->volume; i++) {
             auto *chunk = chunks->chunks[i].get();
-            auto *mesh = meshes[i].get();
+            if (chunk == nullptr) {
+                continue;
+            }
 
+            auto *mesh = chunks->meshes[i].get();
             if (mesh == nullptr) {
                 continue;
             }
@@ -427,5 +308,17 @@ int main(int argc, char *argv[]) {
 		mouse->update();
 	}
 
+    for (unsigned int i = 0; i < chunks->volume; i++) {
+        auto *chunk = chunks->chunks[i].get();
+        if (chunk == nullptr) {
+            continue;
+        }
+
+        std::span<const uint8_t> voxel_span { 
+            reinterpret_cast<uint8_t*>(chunk->voxels.get()), Chunk::VOLUME };
+        global.world_files->put(voxel_span, chunk->x, chunk->z);
+    }
+
+    global.world_files->write();
 	return 0;
 }
