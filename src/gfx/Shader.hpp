@@ -103,7 +103,7 @@ struct Shader {
 		glUniform4fv(get_uniform_location(name), length, v);
 	}
 
-	static inline Shader *load(
+	static inline std::unique_ptr<Shader> load(
 		std::string vertex_file, std::string fragment_file) {
 		std::string vertex_code;
 		std::string fragment_code;
@@ -179,7 +179,7 @@ struct Shader {
 		glDeleteShader(vertex);
 		glDeleteShader(fragment);
 
-		return new Shader(id);
+		return std::make_unique<Shader>(id);
 	}
 
 private:

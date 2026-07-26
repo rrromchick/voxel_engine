@@ -45,4 +45,6 @@ struct Chunks {
 
     bool load_visible(WorldFiles *world_files);
     bool build_meshes(VoxelRenderer *voxel_renderer);
+
+    bool is_obstacle(int x, int y, int z);
 };

@@ -10,6 +10,7 @@ struct Block {
 
     unsigned char draw_group = 0;
     bool light_passing = false;
+    bool obstacle = true;
 
     explicit Block(unsigned int id, int texture)
         : id(id) {

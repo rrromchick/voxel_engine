@@ -23,6 +23,14 @@ Chunks::Chunks(int w, int h, int d, int ox, int oy, int oz)
     }
 }
 
+bool Chunks::is_obstacle(int x, int y, int z) {
+    auto *vox = get(x, y, z);
+    if (vox == nullptr) {
+        return true;
+    }
+    return global.blocks[vox->id].get()->obstacle;
+}
+
 bool Chunks::build_meshes(VoxelRenderer *renderer) {
     int near_x = 0;
     int near_y = 0;
