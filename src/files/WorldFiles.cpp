@@ -27,7 +27,7 @@ void WorldFiles::put(std::span<const uint8_t> chunk_data, int x, int y) {
 
     int region_x = x >> REGION_SIZE_BIT;
     int region_y = y >> REGION_SIZE_BIT;
-
+    
     int local_x = x - (region_x << REGION_SIZE_BIT);
     int local_y = y - (region_y << REGION_SIZE_BIT);
 
@@ -106,18 +106,22 @@ bool WorldFiles::read_chunk(int x, int y, std::span<uint8_t> out) {
     std::size_t compressed_size = bytes_to_uint32(std::span<const uint8_t>(
         reinterpret_cast<const uint8_t*>(&raw_offset), 4));
 
-    input.read(reinterpret_cast<char*>(main_buffer.get()), compressed_size);
-    File::decompress_rle(std::span<const uint8_t>(main_buffer.get(), compressed_size), out);
+    auto compressed_buffer = std::make_unique<uint8_t[]>(compressed_size);
+    input.read(reinterpret_cast<char*>(compressed_buffer.get()), compressed_size);
+
+    std::span<const uint8_t> buffer_span { 
+        reinterpret_cast<const uint8_t*>(compressed_buffer.get()), compressed_size };
+    File::decompress_rle(buffer_span, out);
     return true;
 }
 
 void WorldFiles::write() {
     for (auto &[coords, region_ptr] : regions) {
         if (!region_ptr) continue;
-        
+
         std::span<uint8_t> buffer_span { main_buffer.get(), main_buffer_capacity };
         unsigned int size = write_region(buffer_span, coords.x, coords.y, *region_ptr);
-        File::write_binary_file(get_region_file(coords.x, coords.y), 
+        File::write_binary_file(get_region_file(coords.x, coords.y),
             buffer_span.first(size));
     }
 }

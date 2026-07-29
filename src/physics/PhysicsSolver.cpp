@@ -28,16 +28,6 @@ void PhysicsSolver::step(Hitbox *hitbox, float delta, unsigned int substeps, boo
 
         hitbox->grounded = false;
 
-        //int ground_y = std::floor(pos.y - half.y - E);
-        //for (int x = std::floor(pos.x - half.x + E); x <= std::floor(pos.x + half.x - E); x++) {
-        //    for (int z = std::floor(pos.z - half.z + E); z <= std::floor(pos.z + half.z - E); z++) {
-        //        if (chunks->is_obstacle(x, ground_y, z)) {
-        //            hitbox->grounded = true;
-        //            break;
-        //        }
-        //    }
-        //    if (hitbox->grounded) break;
-        //}
         int ground_y = std::floor(pos.y - half.y - E);
         for (int x = std::floor(pos.x - half.x + E); x <= std::floor(pos.x + half.x - E); x++) {
             for (int z = std::floor(pos.z - half.z + E); z <= std::floor(pos.z + half.z - E); z++) {

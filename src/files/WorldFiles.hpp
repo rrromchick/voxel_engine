@@ -35,7 +35,7 @@ struct std::hash<RegionCoords> {
 };
 
 struct WorldFiles {
-    std::unordered_map<RegionCoords, std::unique_ptr<RegionMap>> regions;   
+    std::unordered_map<RegionCoords, std::unique_ptr<RegionMap>> regions;
     std::string directory;
 
     std::unique_ptr<uint8_t[]> main_buffer;

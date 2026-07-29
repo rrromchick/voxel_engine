@@ -24,7 +24,7 @@ struct File {
             return false;
         }
         return static_cast<bool>(output.write(
-            reinterpret_cast<const char*>(data.data()), data.size()));
+            reinterpret_cast<const char *>(data.data()), data.size()));
     }
 
     static std::size_t append_binary_file(const fs::path &filename, std::span<const uint8_t> data) {
@@ -32,7 +32,7 @@ struct File {
         if (!output.is_open()) {
             return 0;
         }
-        
+
         const auto position = output.tellp();
         if (!output.write(reinterpret_cast<const char *>(data.data()), data.size())) {
             return 0;
@@ -106,7 +106,7 @@ struct File {
 
         std::size_t out_offset = 0;
         uint32_t counter = 1;
-        uint8_t current_byte  = src[0];
+        uint8_t current_byte = src[0];
 
         for (std::size_t i = 1; i < src.size(); i++) {
             uint8_t next_byte = src[i];
