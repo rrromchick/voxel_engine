@@ -1,7 +1,9 @@
 #pragma once
 
-#include <glm/glm.hpp>
+#include <vector>
+#include <random>
 #include <cstdint>
+#include <glm/glm.hpp>
 
 struct Chunk;
 
@@ -32,7 +34,7 @@ enum BlockId : uint8_t {
 };
 
 struct WorldGenerator {
-    explicit WorldGenerator(float seed = 1337.0f);
+    WorldGenerator() = default;
     ~WorldGenerator() = default;
 
     WorldGenerator(const WorldGenerator &other) = delete;
@@ -40,14 +42,29 @@ struct WorldGenerator {
     WorldGenerator &operator=(const WorldGenerator &other) = delete;
     WorldGenerator &operator=(WorldGenerator &&other) = default;
 
-    void generate(Chunk *chunk) const;
+    void generate_terrain(Chunk *chunk) const;
+    void carve_caves(Chunk *chunk) const;
+    void decorate(Chunk *chunk, const std::vector<Chunk*> &chunks) const;
 
 private:
-    float seed = 1337.0f;
+    mutable std::mt19937 rng;
 
-    float octave_noise(float x, float z, int octaves, float persistence, float scale) const;
-    float noise3d(float x, float y, float z, float scale) const;
-    float hash2d(int x, int z) const;
-    void set_voxel_safe(Chunk *chunk, int x, int y, int z, uint8_t block_id) const;
-    void place_tree(Chunk *chunk, int local_x, int surface_y, int local_z) const;
+    float radial2i(glm::vec2 c, glm::vec2 r, glm::vec2 v) const;
+    float radial3i(glm::vec3 c, glm::vec3 r, glm::vec3 v) const;
+    int rand_range(int min, int max) const;
+    bool rand_chance(float chance) const;
+
+    float octave_compute(int octaves, int offset, float seed, float x, float z) const;
+    float combined_compute(int n_oct, int n_off, int m_oct, int m_off, float seed, float x, float z) const;
+
+    void set_voxel_safe(Chunk *chunk, int local_x, int world_y, int local_z, uint8_t block_id) const;
+    uint8_t get_voxel_safe(Chunk *chunk, int local_x, int world_y, int local_z) const;
+
+    void set_voxel_neighbor(const std::vector<Chunk*> &chunks, Chunk *origin, int x, int world_y, int z, uint8_t block_id) const;
+    uint8_t get_voxel_neighbor(const std::vector<Chunk*> &chunks, Chunk *origin, int x, int world_y, int z) const;
+
+    void tree(const std::vector<Chunk*> &chunks, Chunk *origin, int x, int y, int z) const;
+    void flowers(const std::vector<Chunk*> &chunks, Chunk *origin, int x, int y, int z) const;
+    void orevein(const std::vector<Chunk*> &chunks, Chunk *origin, int x, int y, int z, uint8_t block) const;
+    void lavapool(const std::vector<Chunk*> &chunks, Chunk *origin, int x, int y, int z) const;
 };

@@ -357,6 +357,7 @@ int main(int argc, char *argv[]) {
 
         chunks->set_center(camera->position.x, 0, camera->position.z);
         chunks->load_visible(global.world_files.get());
+        chunks->decorate_visible();
         chunks->build_meshes(renderer.get());
 
         if (wnd->grabbed) {

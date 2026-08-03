@@ -5,178 +5,374 @@
 #include <algorithm>
 #include <cmath>
 
-WorldGenerator::WorldGenerator(float seed) : seed(seed) {}
+constexpr int WATER_LEVEL = 64;
 
-float WorldGenerator::octave_noise(float x, float z, int octaves, float persistence, float scale) const {
-    float total = 0.0f;
-    float frequency = scale;
-    float amplitude = 1.0f;
-    float max_value = 0.0f;
+float WorldGenerator::radial2i(glm::vec2 c, glm::vec2 r, glm::vec2 v) const {
+    return glm::length(c - v) / glm::length(r);
+}
 
+float WorldGenerator::radial3i(glm::vec3 c, glm::vec3 r, glm::vec3 v) const {
+    return glm::length(c - v) / glm::length(r);
+}
+
+int WorldGenerator::rand_range(int min, int max) const {
+    std::uniform_int_distribution<int> dist(min, max);
+    return dist(rng);
+}
+
+bool WorldGenerator::rand_chance(float chance) const {
+    std::uniform_real_distribution<float> dist(0.0f, 1.0f);
+    return dist(rng) <= chance;
+}
+
+float WorldGenerator::octave_compute(int octaves, int offset, float seed, float x, float z) const {
+    float u = 1.0f;
+    float v = 0.0f;
     for (int i = 0; i < octaves; i++) {
-        glm::vec2 sample_pos = glm::vec2(x, z) * frequency + glm::vec2(seed + i * 123.45f);
-        float n = (glm::perlin(sample_pos) + 1.0f) * 0.5f;
-        
-        total += n * amplitude;
-        max_value += amplitude;
-
-        amplitude *= persistence;
-        frequency *= 2.0f;
+        auto sample_z = seed + static_cast<float>(i) + static_cast<float>(offset * 32);
+        float n = glm::perlin(glm::vec3(x / u, z / u, sample_z));
+        v += n * u;
+        u *= 2.0f;
     }
-
-    return total / max_value;
+    return v;
 }
 
-float WorldGenerator::noise3d(float x, float y, float z, float scale) const {
-    glm::vec3 sample_pos = glm::vec3(x, y, z) * scale + glm::vec3(seed * 0.5f);
-    return (glm::perlin(sample_pos) + 1.0f) * 0.5f;
-}
+float WorldGenerator::combined_compute(int n_oct, int n_off, int m_oct, int m_off, float seed, float x, float z) const {
+    float m_val = octave_compute(m_oct, m_off, seed, x, z);
+    return octave_compute(n_oct, n_off, seed, x + m_val, z);
+}   
 
-float WorldGenerator::hash2d(int x, int z) const {
-    int n = x * 374761393 + z * 668265263;
-    n = (n ^ (n >> 13)) * 1274126177;
-    return static_cast<float>(n & 0x7FFFFFFF) / static_cast<float>(0x7FFFFFFF);
-}
+void WorldGenerator::set_voxel_safe(Chunk *chunk, int local_x, int world_y, int local_z, uint8_t block_id) const {
+    int chunk_world_y = chunk->y * Chunk::HEIGHT;
+    int local_y = world_y - chunk_world_y;
 
-void WorldGenerator::set_voxel_safe(Chunk* chunk, int x, int y, int z, uint8_t block_id) const {
-    if (x < 0 || x >= Chunk::WIDTH || y < 0 || y >= Chunk::HEIGHT || z < 0 || z >= Chunk::DEPTH) {
+    if (local_x < 0 || local_x >= Chunk::WIDTH ||
+        local_y < 0 || local_y >= Chunk::HEIGHT ||
+        local_z < 0 || local_z >= Chunk::DEPTH) {
         return;
     }
-    int index = (y * Chunk::DEPTH + z) * Chunk::WIDTH + x;
+
+    int index = (local_y * Chunk::DEPTH + local_z) * Chunk::WIDTH + local_x;
     chunk->voxels[index].id = block_id;
 }
 
-void WorldGenerator::place_tree(Chunk* chunk, int local_x, int local_surface_y, int local_z) const {
-    int trunk_height = 5;
+uint8_t WorldGenerator::get_voxel_safe(Chunk *chunk, int local_x, int world_y, int local_z) const {
+    int chunk_world_y = chunk->y * Chunk::HEIGHT;
+    int local_y = world_y - chunk_world_y;
 
-    int leaves_bottom = local_surface_y + trunk_height - 2;
-    int leaves_top = local_surface_y + trunk_height + 1;
+    if (local_x < 0 || local_x >= Chunk::WIDTH ||
+        local_y < 0 || local_y >= Chunk::HEIGHT ||
+        local_z < 0 || local_z >= Chunk::DEPTH) {
+        return BlockId::AIR;
+    }
 
-    for (int ly = leaves_bottom; ly <= leaves_top; ly++) {
-        int radius = (ly >= leaves_top - 1) ? 1 : 2;
-        
-        for (int lx = -radius; lx <= radius; lx++) {
-            for (int lz = -radius; lz <= radius; lz++) {
-                if (std::abs(lx) == radius && std::abs(lz) == radius && radius > 1) {
-                    if (hash2d(local_x + lx, local_z + lz) > 0.4f) continue;
+    int index = (local_y * Chunk::DEPTH + local_z) * Chunk::WIDTH + local_x;
+    return chunk->voxels[index].id;
+}
+
+void WorldGenerator::set_voxel_neighbor(const std::vector<Chunk*> &chunks, Chunk *origin, int x, int world_y, int z, uint8_t block_id) const {
+    auto cdiv = [](int val, int size) -> int {
+        int res = val / size;
+        int rem = val % size;
+        if (rem != 0 && ((val ^ size) < 0)) res--;
+        return res;
+    };
+
+    auto local = [](int val, int size) -> int {
+        int rem = val % size;
+        return rem < 0 ? rem + size : rem;
+    };
+
+    int target_local_y = world_y - (origin->y * Chunk::HEIGHT);
+
+    int cx = cdiv(x, Chunk::WIDTH) + 1;
+    int cy = cdiv(target_local_y, Chunk::HEIGHT) + 1;
+    int cz = cdiv(z, Chunk::DEPTH) + 1;
+
+    if (cx < 0 || cx >= 3 || cy < 0 || cy >= 3 || cz < 0 || cz >= 3) return;
+
+    auto *target = chunks[(cy * 3 + cz) * 3 + cx];
+    if (!target) return;
+
+    int lx = local(x, Chunk::WIDTH);
+    int ly = local(target_local_y, Chunk::HEIGHT);
+    int lz = local(z, Chunk::DEPTH);
+
+    int index = (ly * Chunk::DEPTH + lz) * Chunk::WIDTH + lx;
+    target->voxels[index].id = block_id;
+}
+
+uint8_t WorldGenerator::get_voxel_neighbor(const std::vector<Chunk*> &chunks, Chunk *origin, int x, int world_y, int z) const {
+    auto cdiv = [](int val, int size) -> int {
+        int res = val / size;
+        int rem = val % size;
+        if (rem != 0 && ((val ^ size) < 0)) res--;
+        return res;
+    };
+
+    auto local = [](int val, int size) -> int {
+        int rem = val % size;
+        return rem < 0 ? rem + size : rem;
+    };
+
+    int target_local_y = world_y - (origin->y * Chunk::HEIGHT);
+    
+    int cx = cdiv(x, Chunk::WIDTH) + 1;
+    int cy = cdiv(target_local_y, Chunk::HEIGHT) + 1;
+    int cz = cdiv(z, Chunk::DEPTH) + 1;
+
+    if (cx < 0 || cx >= 3 || cy < 0 || cy >= 3 || cz < 0 || cz >= 3) return BlockId::AIR;
+
+    auto *target = chunks[(cy * 3 + cz) * 3 + cx];
+    if (!target) return BlockId::AIR;
+
+    int lx = local(x, Chunk::WIDTH);
+    int ly = local(target_local_y, Chunk::HEIGHT);
+    int lz = local(z, Chunk::DEPTH);
+
+    int index = (ly * Chunk::DEPTH + lz) * Chunk::WIDTH + lx;
+    return target->voxels[index].id;
+}
+
+void WorldGenerator::tree(const std::vector<Chunk*> &chunks, Chunk *origin, int x, int y, int z) const {
+    uint8_t under = get_voxel_neighbor(chunks, origin, x, y - 1, z);
+    if (under != BlockId::GRASS && under != BlockId::DIRT) return;
+
+    int h = rand_range(3, 5);
+    for (int yy = y; yy <= (y + h); yy++) {
+        set_voxel_neighbor(chunks, origin, x, yy, z, BlockId::LOG);
+    }
+
+    int lh = rand_range(2, 3);
+    for (int xx = (x - 2); xx <= (x + 2); xx++) {
+        for (int zz = (z - 2); zz <= (z + 2); zz++) {
+            for (int yy = (y + h); yy <= (y + h + 1); yy++) {
+                int c = (xx == (x - 2) || xx == (x + 2)) + (zz == (z - 2) || zz == (z + 2));
+                bool corner = (c == 2);
+
+                if ((!(xx == x && zz == z) || yy > (y + h) &&
+                    !(corner && yy == (y + h + 1) && rand_chance(0.4f)))) {
+                    set_voxel_neighbor(chunks, origin, xx, yy, zz, BlockId::LEAVES);
                 }
-
-                if (lx == 0 && lz == 0 && ly < local_surface_y + trunk_height) continue;
-                set_voxel_safe(chunk, local_x + lx, ly, local_z + lz, BlockId::LEAVES);
             }
         }
     }
 
-    for (int i = 1; i <= trunk_height; i++) {
-        set_voxel_safe(chunk, local_x, local_surface_y + i, local_z, BlockId::LOG);
+    for (int xx = (x - 1); xx <= (x + 1); xx++) {
+        for (int zz = (z - 1); zz <= (z + 1); zz++) {
+            for (int yy = (y + h + 2); yy <= (y + h + lh); yy++) {
+                int c = (xx == (x - 1) || xx == (x + 1)) + (zz == (z - 1) || zz == (z + 1));
+                bool corner = (c == 2);
+
+                if (!(corner && yy == (y + h + lh) && rand_chance(0.8f))) {
+                    set_voxel_neighbor(chunks, origin, xx, yy, zz, BlockId::LEAVES);
+                }
+            }
+        }
     }
 }
 
-void WorldGenerator::generate(Chunk* chunk) const {
-    constexpr int SEA_LEVEL   = 36;
-    constexpr int BASE_HEIGHT = 48;
+void WorldGenerator::flowers(const std::vector<Chunk*> &chunks, Chunk *origin, int x, int y, int z) const {
+    uint8_t flower = rand_chance(0.6f) ? BlockId::ROSE : BlockId::BUTTERCUP;
+    int s = rand_range(2, 6);
+    int l = rand_range(s - 1, s + 1);
+    int h = rand_range(s - 1, s + 1);
+
+    for (int xx = (x - l); xx <= (x + l); xx++) {
+        for (int zz = (z - h); zz <= (z + h); zz++) {
+            if (get_voxel_neighbor(chunks, origin, xx, y, zz) == BlockId::GRASS && rand_chance(0.5f)) {
+                set_voxel_neighbor(chunks, origin, xx, y + 1, zz, flower);    
+            }
+        }
+    }
+}
+
+void WorldGenerator::orevein(const std::vector<Chunk*> &chunks, Chunk *origin, int x, int y, int z, uint8_t block) const {
+    int h = rand_range(1, std::max(1, y - 4));
+    int s = (block == BlockId::COAL) ? rand_range(2, 4) : rand_range(1, 3);
+    int l = rand_range(s - 1, s + 1);
+    int w = rand_range(s - 1, s + 1);
+    int i = rand_range(s - 1, s + 1);
+
+    for (int xx = (x - l); xx <= (x + l); xx++) {
+        for (int zz = (z - w); zz <= (z + w); zz++) {
+            for (int yy = (h - i); yy <= (h + i); yy++) {
+                float d = 1.0f - radial3i(
+                    glm::vec3(x, h, z),
+                    glm::vec3(l + 1, w + 1, i + 1),
+                    glm::vec3(xx, yy, zz));
+
+                if (get_voxel_neighbor(chunks, origin, xx, yy, zz) == BlockId::STONE && rand_chance(0.2f + d * 0.7f)) {
+                    set_voxel_neighbor(chunks, origin, xx, yy, zz, block);
+                }
+            }
+        }
+    }
+}
+
+void WorldGenerator::lavapool(const std::vector<Chunk*> &chunks, Chunk *origin, int x, int y, int z) const {
+    int h = y - 1;
+    int s = rand_range(1, 5);
+    int l = rand_range(s - 1, s + 1);
+    int w = rand_range(s - 1, s + 1);
+
+    for (int xx = (x - l); xx <= (x + l); xx++) {
+        for (int zz = (z - w); zz <= (z + w); zz++) {
+            float d = 1.0f - radial2i(
+                glm::vec2(x, z), glm::vec2(l + 1, w + 1), glm::vec2(xx, zz));
+            
+            if (rand_chance(0.2f + d * 0.95f)) {
+                set_voxel_neighbor(chunks, origin, xx, h, zz, BlockId::LAVA);
+            }
+        }
+    }
+}
+
+void WorldGenerator::generate_terrain(Chunk *chunk) const {
+    constexpr float seed = 2.0f;
+    int chunk_world_x = chunk->x * Chunk::WIDTH;
+    int chunk_world_y = chunk->y * Chunk::HEIGHT;
+    int chunk_world_z = chunk->z * Chunk::DEPTH;
+
+    constexpr float base_scale = 1.3f;
+
+    for (int x = 0; x < Chunk::WIDTH; x++) {
+        for (int z = 0; z < Chunk::DEPTH; z++) {
+            auto wx = static_cast<float>(chunk_world_x + x);
+            auto wz = static_cast<float>(chunk_world_z + z);
+
+            float cs0 = combined_compute(8, 1, 8, 2, seed, wx * base_scale, wz * base_scale);
+            float cs1 = combined_compute(8, 3, 8, 4, seed, wx * base_scale, wz * base_scale);
+
+            auto hl = static_cast<int>((cs0 / 6.0f) - 4.0f);
+            auto hh = static_cast<int>((cs1 / 5.0f) + 6.0f);
+
+            float t = octave_compute(6, 0, seed, wx, wz);
+            float r = octave_compute(6, 1, seed, wx / 4.0f, wz / 4.0f) / 32.0f;
+
+            int hr = (t > 0) ? hl : std::max(hh, hl);
+            int h = hr + WATER_LEVEL;
+
+            Biome biome;
+            if (h < WATER_LEVEL) {
+                biome = Biome::OCEAN;
+            } else if (t < 0.08f && h < WATER_LEVEL + 2) {
+                biome = Biome::BEACH;
+            } else {
+                biome = Biome::PLAINS;
+            }
+
+            auto d = static_cast<int>(r * 1.4f + 5.0f);
+
+            uint8_t top_block = BlockId::GRASS;
+            switch (biome) {
+                case Biome::OCEAN:
+                    if (r > 0.8f) top_block = BlockId::GRAVEL;
+                    else if (r > 0.3f) top_block = BlockId::SAND;
+                    else if (r > 0.15f && t < 0.08f) top_block = BlockId::CLAY;
+                    else top_block = BlockId::DIRT;
+                    break;
+                case Biome::BEACH:
+                    top_block = BlockId::SAND;
+                    break;
+                case Biome::PLAINS:
+                    top_block = (t > 4.0f && r > 0.78f) ? BlockId::GRAVEL : BlockId::GRASS;
+                    break;
+                case Biome::MOUNTAIN:
+                    if (r > 0.8f) top_block = BlockId::GRAVEL;
+                    else if (r > 0.7f) top_block = BlockId::DIRT;
+                    else top_block = BlockId::STONE;
+                    break;
+            }
+
+            for (int y = 0; y < Chunk::HEIGHT; y++) {
+                int world_y = chunk_world_y + y;
+                int index = (y * Chunk::DEPTH + z) * Chunk::WIDTH + x;
+
+                if (world_y < h) {
+                    if (world_y == (h - 1)) {
+                        chunk->voxels[index].id = top_block;
+                    } else if (world_y > (h - d)) {
+                        chunk->voxels[index].id = (top_block == BlockId::GRASS) ? BlockId::DIRT : top_block;
+                    } else {
+                        chunk->voxels[index].id = BlockId::STONE;
+                    }
+                } else if (world_y < WATER_LEVEL) {
+                    chunk->voxels[index].id = BlockId::WATER;
+                } else {
+                    chunk->voxels[index].id = BlockId::AIR;
+                }
+            }
+        }
+    }
+}
+
+void WorldGenerator::carve_caves(Chunk *chunk) const {
+    constexpr float seed = 2.0f;
+    int chunk_world_x = chunk->x * Chunk::WIDTH;
+    int chunk_world_y = chunk->y * Chunk::HEIGHT;
+    int chunk_world_z = chunk->z * Chunk::DEPTH;
+
+    for (int x = 0; x < Chunk::WIDTH; x++) {
+        for (int z = 0; z < Chunk::DEPTH; z++) {
+            for (int y = 0; y < Chunk::HEIGHT; y++) {
+                int world_y = chunk_world_y + y;
+                int index = (y * Chunk::DEPTH + z) * Chunk::WIDTH + x;
+                
+                // Cave carving logic
+            }
+        }
+    }
+}
+
+void WorldGenerator::decorate(Chunk *chunk, const std::vector<Chunk*> &chunks) const {
+    constexpr float seed = 2.0f;
+
+    uint32_t chunk_hash = (chunk->x * 73856093) ^ (chunk->y * 19349663) ^ (chunk->z * 83492791);
+    rng.seed(static_cast<uint32_t>(seed) + chunk_hash);
 
     int chunk_world_x = chunk->x * Chunk::WIDTH;
     int chunk_world_y = chunk->y * Chunk::HEIGHT;
     int chunk_world_z = chunk->z * Chunk::DEPTH;
 
-    for (int z = 0; z < Chunk::DEPTH; z++) {
-        for (int x = 0; x < Chunk::WIDTH; x++) {
-            float world_x = static_cast<float>(chunk_world_x + x);
-            float world_z = static_cast<float>(chunk_world_z + z);
+    constexpr float base_scale = 1.3f;
 
-            float continental = octave_noise(world_x, world_z, 2, 0.5f, 0.0012f);
-            float base_detail = octave_noise(world_x, world_z, 4, 0.5f, 0.008f);
+    for (int x = 0; x < Chunk::WIDTH; x++) {
+        for (int z = 0; z < Chunk::DEPTH; z++) {
+            auto wx = static_cast<float>(chunk_world_x + x);
+            auto wz = static_cast<float>(chunk_world_z + z);
 
-            float mountain_raw = octave_noise(world_x, world_z, 5, 0.5f, 0.004f);
-            float mountain_height = std::pow(mountain_raw, 2.0f) * 40.0f;
+            float cs0 = combined_compute(8, 1, 8, 2, seed, wx * base_scale, wz * base_scale);
+            float cs1 = combined_compute(8, 3, 8, 4, seed, wx * base_scale, wz * base_scale);
 
-            int final_height = BASE_HEIGHT;
+            auto hl = static_cast<int>((cs0 / 6.0f) - 4.0f);
+            auto hh = static_cast<int>((cs1 / 5.0f) + 6.0f);
 
-            if (continental < 0.22f) {
-                float ocean_depth = (0.22f - continental) / 0.22f; 
-                final_height = BASE_HEIGHT - static_cast<int>(ocean_depth * 20.0f + base_detail * 4.0f);
-            } else if (continental < 0.55f) {
-                float blend = (continental - 0.22f) / 0.33f;
-                final_height = BASE_HEIGHT + static_cast<int>(base_detail * 10.0f + blend * 4.0f);
-            } else {
-                float blend = (continental - 0.55f) / 0.45f;
-                final_height = BASE_HEIGHT + static_cast<int>(base_detail * 8.0f + mountain_height * blend);
-            }
+            float t = octave_compute(6, 0, seed, wx, wz);
 
-            for (int y = 0; y < Chunk::HEIGHT; y++) {
-                int world_y = chunk_world_y + y;
-                int index = (y * Chunk::DEPTH + z) * Chunk::WIDTH + x;
+            int hr = (t > 0) ? hl : std::max(hh, hl);
+            int h = hr + WATER_LEVEL;
 
-                if (world_y > final_height) {
-                    chunk->voxels[index].id = (world_y <= SEA_LEVEL) ? BlockId::WATER : BlockId::AIR;
-                } else if (world_y == final_height) {
-                    if (world_y <= SEA_LEVEL + 2) {
-                        chunk->voxels[index].id = BlockId::SAND;
-                    } else if (world_y > 75) {
-                        chunk->voxels[index].id = BlockId::STONE;
-                    } else {
-                        chunk->voxels[index].id = BlockId::GRASS;
-                    }
-                } else if (world_y > final_height - 4) {
-                    if (world_y <= SEA_LEVEL + 2) {
-                        chunk->voxels[index].id = BlockId::SAND;
-                    } else if (world_y > 75) {
-                        chunk->voxels[index].id = BlockId::STONE;
-                    } else {
-                        chunk->voxels[index].id = BlockId::DIRT;
-                    }
-                } else {
-                    chunk->voxels[index].id = BlockId::STONE;
+            bool is_plains = !(h < WATER_LEVEL) && !(t < 0.08f && h < WATER_LEVEL + 2);
+
+            if (h >= chunk_world_y && h < chunk_world_y + Chunk::HEIGHT) {
+                if (rand_chance(0.02f)) {
+                    orevein(chunks, chunk, x, h, z, BlockId::COAL);
                 }
-            }
-        }
-    }
-
-    for (int z = 0; z < Chunk::DEPTH; z++) {
-        for (int x = 0; x < Chunk::WIDTH; x++) {
-            float world_x = static_cast<float>(chunk_world_x + x);
-            float world_z = static_cast<float>(chunk_world_z + z);
-
-            for (int y = 0; y < Chunk::HEIGHT; y++) {
-                int world_y = chunk_world_y + y;
-                int index = (y * Chunk::DEPTH + z) * Chunk::WIDTH + x;
-
-                if (chunk->voxels[index].id == BlockId::STONE) {
-                    float coal_noise = noise3d(world_x, static_cast<float>(world_y), world_z, 0.08f);
-                    float copper_noise = noise3d(world_x + 500.0f, static_cast<float>(world_y), world_z + 500.0f, 0.09f);
-
-                    if (coal_noise > 0.72f && world_y < 60) {
-                        chunk->voxels[index].id = BlockId::COAL;
-                    } else if (copper_noise > 0.74f && world_y < 40) {
-                        chunk->voxels[index].id = BlockId::COPPER;
-                    }
+                if (rand_chance(0.02f)) {
+                    orevein(chunks, chunk, x, h, z, BlockId::COPPER);
                 }
-            }
-        }
-    }
 
-    for (int z = 0; z < Chunk::DEPTH; z++) {
-        for (int x = 0; x < Chunk::WIDTH; x++) {
-            int world_x = chunk_world_x + x;
-            int world_z = chunk_world_z + z;
+                if (h <= (WATER_LEVEL + 3) && t < 0.1f && rand_chance(0.001f)) {
+                    lavapool(chunks, chunk, x, h, z);
+                }
 
-            for (int y = Chunk::HEIGHT - 1; y >= 0; y--) {
-                int world_y = chunk_world_y + y;
-                int index = (y * Chunk::DEPTH + z) * Chunk::WIDTH + x;
+                if (is_plains && rand_chance(0.005f)) {
+                    tree(chunks, chunk, x, h, z);
+                }
 
-                if (chunk->voxels[index].id == BlockId::GRASS && world_y > SEA_LEVEL) {
-                    float rnd = hash2d(world_x, world_z);
-
-                    if (rnd > 0.985f && x >= 2 && x <= Chunk::WIDTH - 3 && z >= 2 && z <= Chunk::DEPTH - 3) {
-                        place_tree(chunk, x, y, z);
-                    } else if (rnd < 0.04f && y + 1 < Chunk::HEIGHT) {
-                        int flower_above_index = ((y + 1) * Chunk::DEPTH + z) * Chunk::WIDTH + x;
-                        if (chunk->voxels[flower_above_index].id == BlockId::AIR) {
-                            chunk->voxels[flower_above_index].id = (rnd < 0.02f) ? BlockId::ROSE : BlockId::BUTTERCUP;
-                        }
-                    }
-                    break;
+                if (is_plains && rand_chance(0.0085f)) {
+                    flowers(chunks, chunk, x, h, z);
                 }
             }
         }

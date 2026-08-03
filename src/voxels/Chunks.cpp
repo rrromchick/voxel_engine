@@ -372,11 +372,93 @@ bool Chunks::load_visible(WorldFiles *world_files) {
     auto *chunk = chunks[index].get();
     std::span<uint8_t> voxel_span { 
         reinterpret_cast<uint8_t*>(chunk->voxels.get()), Chunk::VOLUME };
+
     if (!world_files->get_chunk(chunk->x, chunk->y, chunk->z, voxel_span)) {
-        global.generator->generate(chunk);
+        // --- STAGE 1 & 2 ONLY ---
+        global.generator->generate_terrain(chunk);
+        global.generator->carve_caves(chunk);
+        chunk->decorated = false; // Needs Stage 3 decoration later
+    } else {
+        chunk->decorated = true;  // Loaded from file, already decorated
     }
 
     global.lighting->on_chunk_loaded(ox + near_x, oy + near_y, oz + near_z);
+    return true;
+    if (!world_files->get_chunk(chunk->x, chunk->y, chunk->z, voxel_span)) {
+        global.generator->generate_terrain(chunk);
+        global.generator->carve_caves(chunk);
+        chunk->decorated = false;
+    } else {
+        chunk->decorated = true;
+    }
+
+    global.lighting->on_chunk_loaded(ox + near_x, oy + near_y, oz + near_z);
+    return true;
+}
+
+bool Chunks::decorate_visible() {
+    int near_x = 0;
+    int near_y = 0;
+    int near_z = 0;
+    int min_distance = 1000000000;
+    bool found = false;
+
+    for (unsigned int y = 1; y < h - 1; y++) {
+        for (unsigned int z = 1; z < d - 1; z++) {
+            for (unsigned int x = 1; x < w - 1; x++) {
+                int index = (y * d + z) * w + x;
+                auto *chunk = chunks[index].get();
+
+                if (chunk == nullptr || chunk->decorated) {
+                    continue;
+                }
+
+                int lx = x - w / 2;
+                int ly = y - h / 2;
+                int lz = z - d / 2;
+                auto distance = (lx * lx + ly * ly + lz * lz);
+                if (distance < min_distance) {
+                    min_distance = distance;
+                    near_x = x;
+                    near_y = y;
+                    near_z = z;
+                    found = true;
+                }
+            }
+        }
+    }
+
+    if (!found) return false;
+
+    int index = (near_y * d + near_z) * w + near_x;
+    auto *chunk = chunks[index].get();
+
+    std::vector<Chunk*> closes(27, nullptr);
+    for (std::size_t j = 0; j < volume; j++) {
+        auto *other = chunks[j].get();
+        if (other == nullptr) continue;
+
+        int ox = other->x - chunk->x;
+        int oy = other->y - chunk->y;
+        int oz = other->z - chunk->z;
+
+        if (std::abs(ox) > 1 || std::abs(oy) > 1 || std::abs(oz) > 1) continue;
+        closes[((oy + 1) * 3 + (oz + 1)) * 3 + (ox + 1)] = other;
+    }
+
+    for (auto *neighbor : closes) {
+        if (neighbor == nullptr) {
+            return false;
+        }
+    }
+
+    global.generator->decorate(chunk, closes);
+    chunk->decorated = true;
+
+    for (auto *neighbor : closes) {
+        if (neighbor) neighbor->modified = true;
+    }
+
     return true;
 }
 

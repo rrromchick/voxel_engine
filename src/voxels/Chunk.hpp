@@ -17,6 +17,7 @@ struct Chunk {
 		WIDTH * HEIGHT * DEPTH;
 
     bool modified = true;
+	bool decorated = false;
     int x, y, z;
 
 	std::unique_ptr<voxel[]> voxels;
