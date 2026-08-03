@@ -15,13 +15,15 @@
 
 constexpr std::size_t REGION_SIZE_BIT = 5;
 constexpr std::size_t REGION_SIZE = 1 << REGION_SIZE_BIT;
-constexpr std::size_t REGION_VOL = REGION_SIZE * REGION_SIZE;
+constexpr std::size_t REGION_HEIGHT = 16;
+
+constexpr std::size_t REGION_VOL = REGION_SIZE * REGION_SIZE * REGION_HEIGHT;
 
 using ChunkData = std::unique_ptr<uint8_t[]>;
 using RegionMap = std::array<ChunkData, REGION_VOL>;
 
 struct RegionCoords {
-    int x, y;
+    int x, z;
     bool operator==(const RegionCoords &other) const = default;
 };
 
@@ -29,7 +31,7 @@ template <>
 struct std::hash<RegionCoords> {
     std::size_t operator()(const RegionCoords &c) const noexcept {
         std::size_t h1 = std::hash<int>{}(c.x);
-        std::size_t h2 = std::hash<int>{}(c.y);
+        std::size_t h2 = std::hash<int>{}(c.z);
         return h1 ^ (h2 << 1);
     }
 };
@@ -43,19 +45,19 @@ struct WorldFiles {
 
     WorldFiles(std::string_view dir, std::size_t main_buffer_capacity);
     ~WorldFiles() = default;
-
+    
     WorldFiles(const WorldFiles &other) = delete;
     WorldFiles(WorldFiles &&other) = default;
     WorldFiles &operator=(const WorldFiles &other) = delete;
     WorldFiles &operator=(WorldFiles &&other) = default;
 
-    void put(std::span<const uint8_t> chunk_data, int x, int y);
+    void put(std::span<const uint8_t> chunk_data, int x, int y, int z);
 
-    bool read_chunk(int x, int y, std::span<uint8_t> out);
-    bool get_chunk(int x, int y, std::span<uint8_t> out);
+    bool read_chunk(int x, int y, int z, std::span<uint8_t> out);
+    bool get_chunk(int x, int y, int z, std::span<uint8_t> out);
 
-    unsigned int write_region(std::span<uint8_t> out, int x, int y, RegionMap &region);
+    unsigned int write_region(std::span<uint8_t> out, int rx, int rz, RegionMap &region);
     void write();
 
-    [[nodiscard]] std::string get_region_file(int x, int y) const;
+    [[nodiscard]] std::string get_region_file(int rx, int rz) const;
 };

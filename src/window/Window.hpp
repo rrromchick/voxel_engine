@@ -75,9 +75,9 @@ struct Keyboard {
 };
 
 struct Window {
-	uint64_t last_second;
-	uint64_t frames, fps, last_frame, frame_delta;
-	uint64_t ticks, tps, tick_remainder;
+	uint64_t last_second = 0;
+	uint64_t frames = 0, fps = 0, last_frame = 0, frame_delta = 0;
+	uint64_t ticks = 0, tps = 0, tick_remainder = 0;
 
 	bool grabbed = false;
 

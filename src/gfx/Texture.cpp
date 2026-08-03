@@ -69,7 +69,7 @@ Atlas::Atlas(Texture texture, glm::ivec2 sprite_size)
 }
 
 Atlas::Atlas(Texture *texture, glm::ivec2 sprite_size)
-	: sprite_size(sprite_size), texture(texture) {
+	: sprite_size(sprite_size), texture(texture, [](Texture*){}) {
 	update_units();
 }
 

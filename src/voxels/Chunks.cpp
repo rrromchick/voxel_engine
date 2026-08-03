@@ -234,9 +234,9 @@ voxel *Chunks::ray_cast(
     float dz = dir.z;
 
     float t = 0.0f;
-    int ix = glm::floor(px);
-    int iy = glm::floor(py);
-    int iz = glm::floor(pz);
+    int ix = static_cast<int>(glm::floor(px));
+    int iy = static_cast<int>(glm::floor(py));
+    int iz = static_cast<int>(glm::floor(pz));
 
     float stepx = (dx > 0.0f) ? 1.0f : -1.0f;
     float stepy = (dy > 0.0f) ? 1.0f : -1.0f;
@@ -275,7 +275,7 @@ voxel *Chunks::ray_cast(
             if (stepped_index == 2) norm.z = -stepz;
             return voxel;
         }
-        
+
         if (tx_max < ty_max) {
             if (tx_max < tz_max) {
                 ix += stepx;
@@ -302,7 +302,7 @@ voxel *Chunks::ray_cast(
             }
         }
     }
-    
+
     iend.x = ix;
     iend.y = iy;
     iend.z = iz;
@@ -372,8 +372,8 @@ bool Chunks::load_visible(WorldFiles *world_files) {
     auto *chunk = chunks[index].get();
     std::span<uint8_t> voxel_span { 
         reinterpret_cast<uint8_t*>(chunk->voxels.get()), Chunk::VOLUME };
-    if (!world_files->get_chunk(chunk->x, chunk->z, voxel_span)) {
-        global.generator->generate(chunk->voxels, chunk->x, chunk->y, chunk->z);
+    if (!world_files->get_chunk(chunk->x, chunk->y, chunk->z, voxel_span)) {
+        global.generator->generate(chunk);
     }
 
     global.lighting->on_chunk_loaded(ox + near_x, oy + near_y, oz + near_z);

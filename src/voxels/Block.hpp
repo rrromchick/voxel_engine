@@ -2,6 +2,10 @@
 
 #include <array>
 
+enum class BlockModel {
+    CUBE,
+    PLANT,
+};
 struct Block {
     unsigned int id;
 
@@ -11,6 +15,8 @@ struct Block {
     unsigned char draw_group = 0;
     bool light_passing = false;
     bool obstacle = true;
+
+    BlockModel model = BlockModel::CUBE;
 
     explicit Block(unsigned int id, int texture)
         : id(id) {

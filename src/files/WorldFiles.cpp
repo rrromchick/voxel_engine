@@ -1,5 +1,8 @@
 #include "WorldFiles.hpp"
 #include "File.hpp"
+#include <fstream>
+#include <cstring>
+#include <algorithm>
 
 static uint32_t bytes_to_uint32(std::span<const uint8_t> src) {
     uint32_t value;
@@ -22,23 +25,40 @@ WorldFiles::WorldFiles(std::string_view dir, std::size_t capacity)
     main_buffer = std::make_unique<uint8_t[]>(capacity);
 }
 
-void WorldFiles::put(std::span<const uint8_t> chunk_data, int x, int y) {
+std::string WorldFiles::get_region_file(int rx, int rz) const {
+    return directory + std::to_string(rx) + "_" + std::to_string(rz) + ".bin";
+}
+
+static bool calculate_chunk_index(int x, int y, int z, int &region_x, int &region_z, std::size_t &out_idx) {
+    if (y < 0 || y >= static_cast<int>(REGION_HEIGHT)) {
+        return false;
+    }
+
+    region_x = x >> REGION_SIZE_BIT;
+    region_z = z >> REGION_SIZE_BIT;
+
+    int local_x = x - (region_x << REGION_SIZE_BIT);
+    int local_z = z - (region_z << REGION_SIZE_BIT);
+
+    out_idx = (static_cast<std::size_t>(y) * REGION_SIZE + local_z) * REGION_SIZE + local_x;
+    return true;
+}
+
+void WorldFiles::put(std::span<const uint8_t> chunk_data, int x, int y, int z) {
     assert(chunk_data.size() >= Chunk::VOLUME);
 
-    int region_x = x >> REGION_SIZE_BIT;
-    int region_y = y >> REGION_SIZE_BIT;
-    
-    int local_x = x - (region_x << REGION_SIZE_BIT);
-    int local_y = y - (region_y << REGION_SIZE_BIT);
+    int region_x, region_z;
+    std::size_t chunk_idx;
+    if (!calculate_chunk_index(x, y, z, region_x, region_z, chunk_idx)) {
+        return;
+    }
 
-    auto &region_ptr = regions[{ region_x, region_y }];
+    auto &region_ptr = regions[{ region_x, region_z }];
     if (!region_ptr) {
         region_ptr = std::make_unique<RegionMap>();
     }
 
     auto &region = *region_ptr;
-
-    std::size_t chunk_idx = local_y * REGION_SIZE + local_x;
     auto &chunk = region[chunk_idx];
 
     if (!chunk) {
@@ -48,46 +68,39 @@ void WorldFiles::put(std::span<const uint8_t> chunk_data, int x, int y) {
     std::copy_n(chunk_data.begin(), Chunk::VOLUME, chunk.get());
 }
 
-std::string WorldFiles::get_region_file(int x, int y) const {
-    return directory + std::to_string(x) + "_" + std::to_string(y) + ".bin";
-}
-
-bool WorldFiles::get_chunk(int x, int y, std::span<uint8_t> out) {
+bool WorldFiles::get_chunk(int x, int y, int z, std::span<uint8_t> out) {
     assert(out.size() >= Chunk::VOLUME);
 
-    int region_x = x >> REGION_SIZE_BIT;
-    int region_y = y >> REGION_SIZE_BIT;
-
-    int local_x = x - (region_x << REGION_SIZE_BIT);
-    int local_y = y - (region_y << REGION_SIZE_BIT);
-    std::size_t chunk_index = local_y * REGION_SIZE + local_x;
-    assert(chunk_index < REGION_VOL);
-
-    auto it = regions.find({ region_x, region_y });
-    if (it == regions.end() || !it->second) {
-        return read_chunk(x, y, out);
+    int region_x, region_z;
+    std::size_t chunk_idx;
+    if (!calculate_chunk_index(x, y, z, region_x, region_z, chunk_idx)) {
+        return false;
     }
 
-    const auto &chunk_ptr = (*it->second)[chunk_index];
+    auto it = regions.find({ region_x, region_z });
+    if (it == regions.end() || !it->second) {
+        return read_chunk(x, y, z, out);
+    }
+
+    const auto &chunk_ptr = (*it->second)[chunk_idx];
     if (!chunk_ptr) {
-        return read_chunk(x, y, out);
+        return read_chunk(x, y, z, out);
     }
 
     std::copy_n(chunk_ptr.get(), Chunk::VOLUME, out.begin());
     return true;
 }
 
-bool WorldFiles::read_chunk(int x, int y, std::span<uint8_t> out) {
+bool WorldFiles::read_chunk(int x, int y, int z, std::span<uint8_t> out) {
     assert(out.size() >= Chunk::VOLUME);
 
-    int region_x = x >> REGION_SIZE_BIT;
-    int region_y = y >> REGION_SIZE_BIT;
+    int region_x, region_z;
+    std::size_t chunk_index;
+    if (!calculate_chunk_index(x, y, z, region_x, region_z, chunk_index)) {
+        return false;
+    }
 
-    int local_x = x - (region_x << REGION_SIZE_BIT);
-    int local_y = y - (region_y << REGION_SIZE_BIT);
-    std::size_t chunk_index = local_y * REGION_SIZE + local_x;
-
-    std::string filename = get_region_file(region_x, region_y);
+    std::string filename = get_region_file(region_x, region_z);
     std::ifstream input(filename, std::ios::binary);
     if (!input.is_open()) {
         return false;
@@ -96,6 +109,7 @@ bool WorldFiles::read_chunk(int x, int y, std::span<uint8_t> out) {
     uint32_t raw_offset = 0;
     input.seekg(chunk_index * 4);
     input.read(reinterpret_cast<char*>(&raw_offset), 4);
+    if (input.gcount() != 4) return false;
 
     uint32_t offset = bytes_to_uint32(std::span<const uint8_t>(
         reinterpret_cast<const uint8_t*>(&raw_offset), 4));
@@ -103,13 +117,20 @@ bool WorldFiles::read_chunk(int x, int y, std::span<uint8_t> out) {
 
     input.seekg(offset);
     input.read(reinterpret_cast<char*>(&raw_offset), 4);
+    if (input.gcount() != 4) return false;
+
     std::size_t compressed_size = bytes_to_uint32(std::span<const uint8_t>(
         reinterpret_cast<const uint8_t*>(&raw_offset), 4));
 
+    if (compressed_size == 0 || compressed_size > Chunk::VOLUME * 2) {
+        return false;
+    }
+
     auto compressed_buffer = std::make_unique<uint8_t[]>(compressed_size);
     input.read(reinterpret_cast<char*>(compressed_buffer.get()), compressed_size);
+    if (static_cast<std::size_t>(input.gcount()) != compressed_size) return false;
 
-    std::span<const uint8_t> buffer_span { 
+    std::span<const uint8_t> buffer_span{
         reinterpret_cast<const uint8_t*>(compressed_buffer.get()), compressed_size };
     File::decompress_rle(buffer_span, out);
     return true;
@@ -120,15 +141,19 @@ void WorldFiles::write() {
         if (!region_ptr) continue;
 
         std::span<uint8_t> buffer_span { main_buffer.get(), main_buffer_capacity };
-        unsigned int size = write_region(buffer_span, coords.x, coords.y, *region_ptr);
-        File::write_binary_file(get_region_file(coords.x, coords.y),
-            buffer_span.first(size));
+        unsigned int size = write_region(buffer_span, coords.x, coords.z, *region_ptr);
+        if (size > 0) {
+            File::write_binary_file(get_region_file(coords.x, coords.z),
+                buffer_span.first(size));
+        }
     }
 }
 
 unsigned int WorldFiles::write_region(
-    std::span<uint8_t> out, int x, int y, RegionMap &region) {
+    std::span<uint8_t> out, int rx, int rz, RegionMap &region) {
     unsigned int offset = REGION_VOL * 4;
+    if (offset > out.size()) return 0;
+
     std::fill_n(out.begin(), offset, 0);
 
     std::vector<uint8_t> compressed(Chunk::VOLUME * 2);
@@ -138,10 +163,16 @@ unsigned int WorldFiles::write_region(
 
         if (!chunk_ptr) {
             auto temp_chunk = std::make_unique<uint8_t[]>(Chunk::VOLUME);
-            int chunk_x = (i % REGION_SIZE) + x * REGION_SIZE;
-            int chunk_y = (i / REGION_SIZE) + y * REGION_SIZE;
 
-            if (read_chunk(chunk_x, chunk_y, std::span<uint8_t>(
+            auto local_x = i % REGION_SIZE;
+            auto local_z = (i / REGION_SIZE) % REGION_SIZE;
+            auto local_y = static_cast<int>(i / (REGION_SIZE * REGION_SIZE));
+
+            int chunk_x = local_x + (rx << REGION_SIZE_BIT);
+            int chunk_z = local_z + (rz << REGION_SIZE_BIT);
+            int chunk_y = local_y;
+
+            if (read_chunk(chunk_x, chunk_y, chunk_z, std::span<uint8_t>(
                     temp_chunk.get(), Chunk::VOLUME))) {
                 chunk_ptr = std::move(temp_chunk);
             }
@@ -150,11 +181,14 @@ unsigned int WorldFiles::write_region(
         if (!chunk_ptr) {
             uint32_to_bytes(0, out.subspan(i * 4, 4));
         } else {
+            auto compressed_size = static_cast<unsigned int>(File::compress_rle(
+                std::span<const uint8_t>(chunk_ptr.get(), Chunk::VOLUME), compressed));
+
+            if (offset + 4 + compressed_size > out.size()) {
+                return 0; // Buffer capacity safety check
+            }
+
             uint32_to_bytes(offset, out.subspan(i * 4, 4));
-
-            unsigned int compressed_size = File::compress_rle(
-                std::span<const uint8_t>(chunk_ptr.get(), Chunk::VOLUME), compressed);
-
             uint32_to_bytes(compressed_size, out.subspan(offset, 4));
             offset += 4;
 
