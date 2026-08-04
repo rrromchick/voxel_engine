@@ -127,7 +127,7 @@ struct Shader {
 			vertex_code = v_shader_stream.str();
 			fragment_code = f_shader_stream.str();
 		} catch (std::ifstream::failure &e) {
-			std::cerr << "ERROR::SHADER::FILE_NOT_SUCCESSFULLY_READ: " << std::endl;
+			std::cerr << "ERROR::SHADER::FILE_NOT_SUCCESSFULLY_READ: " << e.what() << std::endl;
 			return nullptr;
 		}
 
