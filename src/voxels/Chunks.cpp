@@ -234,9 +234,9 @@ voxel *Chunks::ray_cast(
     float dz = dir.z;
 
     float t = 0.0f;
-    int ix = static_cast<int>(glm::floor(px));
-    int iy = static_cast<int>(glm::floor(py));
-    int iz = static_cast<int>(glm::floor(pz));
+    auto ix = static_cast<int>(glm::floor(px));
+    auto iy = static_cast<int>(glm::floor(py));
+    auto iz = static_cast<int>(glm::floor(pz));
 
     float stepx = (dx > 0.0f) ? 1.0f : -1.0f;
     float stepy = (dy > 0.0f) ? 1.0f : -1.0f;
@@ -374,12 +374,11 @@ bool Chunks::load_visible(WorldFiles *world_files) {
         reinterpret_cast<uint8_t*>(chunk->voxels.get()), Chunk::VOLUME };
 
     if (!world_files->get_chunk(chunk->x, chunk->y, chunk->z, voxel_span)) {
-        // --- STAGE 1 & 2 ONLY ---
         global.generator->generate_terrain(chunk);
         global.generator->carve_caves(chunk);
-        chunk->decorated = false; // Needs Stage 3 decoration later
+        chunk->decorated = false;
     } else {
-        chunk->decorated = true;  // Loaded from file, already decorated
+        chunk->decorated = true;
     }
 
     global.lighting->on_chunk_loaded(ox + near_x, oy + near_y, oz + near_z);
