@@ -26,7 +26,7 @@ target_sources(
 	src/voxels/Chunks.cpp src/util/File.hpp src/gfx/LineBatch.hpp src/gfx/LineBatch.cpp src/lighting/Lightmap.hpp src/lighting/Lightmap.cpp
 	src/lighting/LightSolver.hpp src/lighting/LightSolver.cpp src/lighting/Lighting.hpp src/lighting/Lighting.cpp src/voxels/Block.hpp
 	src/files/WorldFiles.hpp src/files/WorldFiles.cpp src/voxels/WorldGenerator.hpp src/voxels/WorldGenerator.cpp
-	src/physics/Hitbox.hpp src/physics/PhysicsSolver.hpp src/physics/PhysicsSolver.cpp)
+	src/physics/Hitbox.hpp src/physics/PhysicsSolver.hpp src/physics/PhysicsSolver.cpp src/state/StateGame.hpp src/state/StateGame.cpp)
 
 file(COPY "${CMAKE_CURRENT_SOURCE_DIR}/res" 
      DESTINATION "${CMAKE_CURRENT_BINARY_DIR}")
@@ -41,7 +41,8 @@ target_include_directories(${PROJECT_NAME} PUBLIC
 	${CMAKE_CURRENT_SOURCE_DIR}/src/voxels
 	${CMAKE_CURRENT_SOURCE_DIR}/src/window
 	${CMAKE_CURRENT_SOURCE_DIR}/src/files
-	${CMAKE_CURRENT_SOURCE_DIR}/src/physics)
+	${CMAKE_CURRENT_SOURCE_DIR}/src/physics
+	${CMAKE_CURRENT_SOURCE_DIR}/src/state)
 
 target_link_libraries(${PROJECT_NAME} PRIVATE glfw glad glm::glm opengl32) 
 

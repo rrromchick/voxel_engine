@@ -120,7 +120,7 @@ bool WorldFiles::read_chunk(int x, int y, int z, std::span<uint8_t> out) {
     if (input.gcount() != 4) return false;
 
     std::size_t compressed_size = bytes_to_uint32(std::span<const uint8_t>(
-        reinterpret_cast<const uint8_t*>(&raw_offset), 4));
+        reinterpret_cast<const uint8_t*>(&raw_offset), 4)); 
 
     if (compressed_size == 0 || compressed_size > Chunk::VOLUME * 2) {
         return false;
