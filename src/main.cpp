@@ -63,6 +63,7 @@ int main(int argc, char *argv[]) {
 
         game->update();
         game->render();
+        game->render_ui();
 
         wnd->swap_buffers();
         wnd->get_mouse()->clear_delta();

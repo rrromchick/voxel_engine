@@ -11,6 +11,9 @@
 #include "Lighting.hpp"
 #include "WorldFiles.hpp"
 #include "WorldGenerator.hpp"
+#include "imgui.h"
+#include "imgui_impl_glfw.h"
+#include "imgui_impl_opengl3.h"
 #include <GLFW/glfw3.h>
 #include <glm/gtc/matrix_transform.hpp>
 #include <algorithm>
@@ -119,6 +122,13 @@ void StateGame::init() {
     global.crosshair = std::make_unique<Mesh>(vertices, attrs);
     camera = std::make_unique<Camera>(glm::vec3(32, 120.5f, 32), glm::radians(90.0f));
     hitbox = std::make_unique<Hitbox>(glm::vec3(32, 120, 32), glm::vec3(0.2f, 0.9f, 0.2f));
+
+    IMGUI_CHECKVERSION();
+    ImGui::CreateContext();
+    ImGui::StyleColorsDark();
+
+    ImGui_ImplGlfw_InitForOpenGL(global.window->get_handle(), true);
+    ImGui_ImplOpenGL3_Init("#version 330");
 }
 
 void StateGame::tick() {
@@ -135,12 +145,6 @@ void StateGame::update() {
     auto *keyboard = wnd->get_keyboard();
     auto *mouse = wnd->get_mouse();
     auto *chunks = global.chunks.get();
-
-    for (int i = 1; i < 6; i++) {
-        if (keyboard->keys[GLFW_KEY_0 + i].pressed) {
-            choosen_block = i;
-        }
-    }
 
     if (keyboard->keys[GLFW_KEY_ESCAPE].pressed) {
         wnd->set_should_close(true);
@@ -237,7 +241,7 @@ void StateGame::render() {
 
     global.shader->use();
     global.shader->uniform_matrix("u_projview", camera->get_projection() * camera->get_view());
-    global.shader->uniform_1f("u_gamma", 1.6f);
+    global.shader->uniform_1f("u_gamma", 2.2f);
     global.shader->uniform_3f("u_sky_light_color", 0.2f, 0.3f, 0.4f);
     global.texture->bind();
 
@@ -262,7 +266,45 @@ void StateGame::render() {
     global.line_batch->render();
 }
 
+void StateGame::render_ui() {
+    ImGui_ImplOpenGL3_NewFrame();
+    ImGui_ImplGlfw_NewFrame();
+    ImGui::NewFrame();
+
+    ImGui::SetNextWindowPos(ImVec2(10, 10), ImGuiCond_FirstUseEver);
+    ImGui::SetNextWindowSize(ImVec2(200, 300), ImGuiCond_FirstUseEver);
+
+    ImGui::Begin("Game Options");
+
+    ImGui::Text("Selected Block ID: %d", choosen_block);
+    ImGui::Separator();
+
+    if (ImGui::BeginListBox("Select Block", ImVec2(-FLT_MIN, 10 * ImGui::GetTextLineHeightWithSpacing()))) {
+        for (int i = 0; i < static_cast<int>(block_id_to_str.size()); i++) {
+            const bool is_selected = (choosen_block == i);
+
+            if (ImGui::Selectable(block_id_to_str[i].c_str(), is_selected)) {
+                choosen_block = i;
+            }
+
+            if (is_selected) {
+                ImGui::SetItemDefaultFocus();
+            }
+        }
+        ImGui::EndListBox();
+    }
+
+    ImGui::End();
+
+    ImGui::Render();
+    ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
+}
+
 void StateGame::destroy() {
+    ImGui_ImplOpenGL3_Shutdown();
+    ImGui_ImplGlfw_Shutdown();
+    ImGui::DestroyContext();
+
     auto *chunks = global.chunks.get();
     if (chunks && global.world_files) {
         for (unsigned int i = 0; i < chunks->volume; i++) {

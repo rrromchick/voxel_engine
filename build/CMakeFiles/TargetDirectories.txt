@@ -1,0 +1,10 @@
+D:/voxel_engine/build/CMakeFiles/glad.dir
+D:/voxel_engine/build/CMakeFiles/imgui.dir
+D:/voxel_engine/build/CMakeFiles/voxel_engine.dir
+D:/voxel_engine/build/CMakeFiles/ALL_BUILD.dir
+D:/voxel_engine/build/CMakeFiles/ZERO_CHECK.dir
+D:/voxel_engine/build/external/glfw/CMakeFiles/ALL_BUILD.dir
+D:/voxel_engine/build/external/glfw/src/CMakeFiles/glfw.dir
+D:/voxel_engine/build/external/glfw/src/CMakeFiles/update_mappings.dir
+D:/voxel_engine/build/external/glm/CMakeFiles/ALL_BUILD.dir
+D:/voxel_engine/build/external/glm/glm/CMakeFiles/glm.dir

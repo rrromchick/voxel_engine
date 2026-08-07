@@ -15,6 +15,8 @@ struct StateGame : public State {
     void tick() override;
     void render() override;
 
+    void render_ui();
+
 private:
     std::unique_ptr<VoxelRenderer> renderer;
     std::unique_ptr<Camera> camera;

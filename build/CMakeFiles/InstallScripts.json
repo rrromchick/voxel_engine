@@ -1,0 +1,12 @@
+{
+	"InstallScripts" : 
+	[
+		"D:/voxel_engine/build/cmake_install.cmake",
+		"D:/voxel_engine/build/external/glfw/cmake_install.cmake",
+		"D:/voxel_engine/build/external/glfw/src/cmake_install.cmake",
+		"D:/voxel_engine/build/external/glfw/docs/cmake_install.cmake",
+		"D:/voxel_engine/build/external/glm/cmake_install.cmake",
+		"D:/voxel_engine/build/external/glm/glm/cmake_install.cmake"
+	],
+	"Parallel" : false
+}

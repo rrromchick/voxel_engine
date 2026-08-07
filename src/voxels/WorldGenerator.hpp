@@ -3,6 +3,8 @@
 #include <vector>
 #include <random>
 #include <cstdint>
+#include <array>
+#include <string>
 #include <glm/glm.hpp>
 
 struct Chunk;
@@ -32,6 +34,17 @@ enum BlockId : uint8_t {
     COPPER = 14,
     LAVA = 15
 };
+
+constexpr std::array<std::string, 16> block_id_to_str = {{
+    "AIR", "GRASS", "DIRT", "LAMP", "STONE", "SAND", "GRAVEL",
+    "CLAY", "WATER", "LOG", "LEAVES", "ROSE", "BUTTERCUP", "COAL",
+    "COPPER", "LAVA"
+}};
+
+static std::string block_id_to_string(const BlockId &id) {
+    assert(id < block_id_to_str.size());
+    return block_id_to_str[id];
+}
 
 struct WorldGenerator {
     WorldGenerator() = default;

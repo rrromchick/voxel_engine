@@ -15,6 +15,14 @@ add_subdirectory(external/glm)
 add_library(glad external/glad/src/glad.c)
 target_include_directories(glad PUBLIC external/glad/include)
 
+add_library(imgui STATIC
+	external/imgui/imgui.cpp
+	external/imgui/imgui_draw.cpp
+	external/imgui/imgui_tables.cpp
+	external/imgui/imgui_widgets.cpp
+	external/imgui/backends/imgui_impl_glfw.cpp
+	external/imgui/backends/imgui_impl_opengl3.cpp)
+
 add_executable(${PROJECT_NAME} src/main.cpp)
 
 target_compile_features(${PROJECT_NAME} PUBLIC cxx_std_20)
@@ -31,8 +39,17 @@ target_sources(
 file(COPY "${CMAKE_CURRENT_SOURCE_DIR}/res" 
      DESTINATION "${CMAKE_CURRENT_BINARY_DIR}")
 
+target_link_libraries(imgui PUBLIC glfw glad)
+
+target_include_directories(imgui PUBLIC
+    ${CMAKE_SOURCE_DIR}/external/imgui
+    ${CMAKE_SOURCE_DIR}/external/imgui/backends
+    ${CMAKE_SOURCE_DIR}/external/glfw/include
+    ${CMAKE_SOURCE_DIR}/external/glad/include)
+
 target_include_directories(${PROJECT_NAME} PUBLIC external/glm/glm)
 target_include_directories(${PROJECT_NAME} PUBLIC external)
+
 target_include_directories(${PROJECT_NAME} PUBLIC 
 	${CMAKE_CURRENT_SOURCE_DIR}/src
 	${CMAKE_CURRENT_SOURCE_DIR}/src/gfx
@@ -42,9 +59,11 @@ target_include_directories(${PROJECT_NAME} PUBLIC
 	${CMAKE_CURRENT_SOURCE_DIR}/src/window
 	${CMAKE_CURRENT_SOURCE_DIR}/src/files
 	${CMAKE_CURRENT_SOURCE_DIR}/src/physics
-	${CMAKE_CURRENT_SOURCE_DIR}/src/state)
+	${CMAKE_CURRENT_SOURCE_DIR}/src/state
+	${CMAKE_CURRENT_SOURCE_DIR}/external/imgui
+	${CMAKE_CURRENT_SOURCE_DIR}/external/imgui/backends)
 
-target_link_libraries(${PROJECT_NAME} PRIVATE glfw glad glm::glm opengl32) 
+target_link_libraries(${PROJECT_NAME} PRIVATE glfw glad glm::glm opengl32 imgui) 
 
 if (MSVC) 
     target_compile_options(${PROJECT_NAME} PRIVATE /Zc:__cplusplus /permissive-)
