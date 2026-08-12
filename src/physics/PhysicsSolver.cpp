@@ -9,7 +9,38 @@ constexpr auto E = 0.001f;
 
 PhysicsSolver::PhysicsSolver(glm::vec3 gravity) : gravity(gravity) {}
 
-void PhysicsSolver::step(Hitbox *hitbox, float delta, unsigned int substeps, bool shifting) {
+FluidType PhysicsSolver::check_fluid(Chunks *chunks, Hitbox *hitbox) {
+    auto &pos = hitbox->position;
+    auto &half = hitbox->halfsize;
+
+    auto min_x = std::floor<int>(pos.x - half.x + E);
+    auto max_x = std::floor<int>(pos.x + half.x - E);
+    auto min_y = std::floor<int>(pos.y - half.y + E);
+    auto max_y = std::floor<int>(pos.y + half.y - E);
+    auto min_z = std::floor<int>(pos.z - half.z + E);
+    auto max_z = std::floor<int>(pos.z + half.z - E);
+
+    bool in_water = false;
+    bool in_lava = false;
+
+    for (int x = min_x; x <= max_x; x++) {
+        for (int y = min_y; y <= max_y; y++) {
+            for (int z = min_z; z <= max_z; z++) {
+                auto *vox = chunks->get(x, y, z);
+                if (vox) {
+                    if (vox->id == BlockId::WATER) in_water = true;
+                    if (vox->id == BlockId::LAVA) in_lava = true;
+                }
+            }
+        }
+    }
+
+    if (in_lava) return FluidType::LAVA;
+    if (in_water) return FluidType::WATER;
+    return FluidType::NONE;
+}
+
+void PhysicsSolver::step(Hitbox *hitbox, float delta, unsigned int substeps, bool shifting, bool is_swimming_up) {
     if (substeps == 0) return;
 
     float dt = delta / static_cast<float>(substeps);
@@ -23,14 +54,46 @@ void PhysicsSolver::step(Hitbox *hitbox, float delta, unsigned int substeps, boo
         auto prev_x = pos.x;
         auto prev_z = pos.z;
 
-        vel.y += gravity.y * dt;
+        FluidType fluid = check_fluid(chunks, hitbox);
+
+        if (fluid != FluidType::NONE) {
+            float gravity_scale = (fluid == FluidType::WATER) ? 0.2f : 0.05f;
+            float drag = (fluid == FluidType::WATER) ? 6.0f : 16.0f;
+
+            vel.y += gravity.y * gravity_scale * dt;
+
+            if (is_swimming_up) {
+                auto head_x = std::floor<int>(pos.x);
+                auto head_y = std::floor<int>(pos.y + half.y + 0.1f);
+                auto head_z = std::floor<int>(pos.z);
+
+                auto *block_above = chunks->get(head_x, head_y, head_z);
+                bool near_surface = (!block_above || block_above->id == BlockId::AIR);
+
+                float swim_impulse = near_surface ? 18.0f : ((fluid == FluidType::WATER) ? 12.0f : 6.0f);
+                vel.y += swim_impulse * dt;
+            }
+
+            auto drag_factor = std::max<float>(0.0f, 1.0f - drag * dt);
+            vel.x *= drag_factor;
+            vel.y *= drag_factor;
+            vel.z *= drag_factor;
+            
+            float max_sink_speed = (fluid == FluidType::WATER) ? -2.5f : -0.8f;
+            if (vel.y < max_sink_speed) {
+                vel.y = max_sink_speed;
+            }
+        } else {
+            vel.y += gravity.y * dt;
+        }
+
         pos.y += vel.y * dt;
 
         hitbox->grounded = false;
 
-        int ground_y = std::floor(pos.y - half.y - E);
-        for (int x = std::floor(pos.x - half.x + E); x <= std::floor(pos.x + half.x - E); x++) {
-            for (int z = std::floor(pos.z - half.z + E); z <= std::floor(pos.z + half.z - E); z++) {
+        int ground_y = std::floor<int>(pos.y - half.y - E);
+        for (int x = std::floor<int>(pos.x - half.x + E); x <= std::floor<int>(pos.x + half.x - E); x++) {
+            for (int z = std::floor<int>(pos.z - half.z + E); z <= std::floor<int>(pos.z + half.z - E); z++) {
                 if (chunks->is_obstacle(x, ground_y, z)) {
                     hitbox->grounded = true;
                     break;
@@ -40,9 +103,9 @@ void PhysicsSolver::step(Hitbox *hitbox, float delta, unsigned int substeps, boo
         }
 
         if (vel.y <= 0.0f) {
-            int y = std::floor(pos.y - half.y);
-            for (int x = std::floor(pos.x - half.x + E); x <= std::floor(pos.x + half.x - E); x++) {
-                for (int z = std::floor(pos.z - half.z + E); z <= std::floor(pos.z + half.z - E); z++) {
+            int y = std::floor<int>(pos.y - half.y);
+            for (int x = std::floor<int>(pos.x - half.x + E); x <= std::floor<int>(pos.x + half.x - E); x++) {
+                for (int z = std::floor<int>(pos.z - half.z + E); z <= std::floor<int>(pos.z + half.z - E); z++) {
                     if (chunks->is_obstacle(x, y, z)) {
                         pos.y = y + 1.0f + half.y;
                         vel.y = 0.0f;
@@ -57,9 +120,9 @@ void PhysicsSolver::step(Hitbox *hitbox, float delta, unsigned int substeps, boo
                 if (hitbox->grounded) break;
             }
         } else if (vel.y > 0.0f) {
-            int y = std::floor(pos.y + half.y - E);
-            for (int x = std::floor(pos.x - half.x + E); x <= std::floor(pos.x + half.x - E); x++) {
-                for (int z = std::floor(pos.z - half.z + E); z <= std::floor(pos.z + half.z - E); z++) {
+            auto y = std::floor<int>(pos.y + half.y - E);
+            for (int x = std::floor<int>(pos.x - half.x + E); x <= std::floor<int>(pos.x + half.x - E); x++) {
+                for (int z = std::floor<int>(pos.z - half.z + E); z <= std::floor<int>(pos.z + half.z - E); z++) {
                     if (chunks->is_obstacle(x, y, z)) {
                         pos.y = y - half.y - E;
                         vel.y = 0.0f;
@@ -123,7 +186,7 @@ void PhysicsSolver::step(Hitbox *hitbox, float delta, unsigned int substeps, boo
             }
         }
 
-        if (shifting && hitbox->grounded) {
+        if (shifting && hitbox->grounded && fluid == FluidType::NONE) {
             int check_y = std::floor(pos.y - half.y - 0.5f);
 
             bool ground_below_z = false;

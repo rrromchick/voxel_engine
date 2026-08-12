@@ -155,6 +155,7 @@ void StateGame::update() {
 
     bool sprint = keyboard->keys[GLFW_KEY_LEFT_CONTROL].down;
     bool shift = keyboard->keys[GLFW_KEY_LEFT_SHIFT].down && hitbox->grounded && !sprint;
+    bool is_swimming_up = keyboard->keys[GLFW_KEY_SPACE].down;
 
     auto speed = static_cast<float>(player_speed);
     glm::vec3 dir(0, 0, 0);
@@ -169,7 +170,7 @@ void StateGame::update() {
 
     auto substeps = static_cast<int>(wnd->frame_delta * 1000);
     substeps = (substeps <= 0 ? 1 : (substeps > 100 ? 100 : substeps));
-    physics_solver->step(hitbox.get(), delta_seconds, substeps, shift);
+    physics_solver->step(hitbox.get(), delta_seconds, substeps, shift, is_swimming_up);
 
     camera->position.x = hitbox->position.x;
     camera->position.y = hitbox->position.y + 0.5f;
@@ -292,6 +293,23 @@ void StateGame::render_ui() {
             }
         }
         ImGui::EndListBox();
+    }
+    ImGui::End();
+
+    ImGui::SetNextWindowPos(ImVec2(10.0f, 350.0f), ImGuiCond_Always);
+    ImGui::SetNextWindowBgAlpha(0.35f); 
+
+    ImGuiWindowFlags window_flags = 
+        ImGuiWindowFlags_NoDecoration | 
+        ImGuiWindowFlags_AlwaysAutoResize | 
+        ImGuiWindowFlags_NoSavedSettings | 
+        ImGuiWindowFlags_NoFocusOnAppearing | 
+        ImGuiWindowFlags_NoNav |
+        ImGuiWindowFlags_NoMove;
+
+    if (ImGui::Begin("Performance Overlay", nullptr, window_flags)) {
+        ImGui::Text("FPS: %llu", global.window->fps);
+        ImGui::Text("TPS: %llu", global.window->tps);
     }
 
     ImGui::End();

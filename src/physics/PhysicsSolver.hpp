@@ -9,6 +9,10 @@ using namespace glm;
 
 struct Hitbox;
 
+enum class FluidType {
+    NONE, WATER, LAVA
+};
+
 struct PhysicsSolver {
     explicit PhysicsSolver(vec3 gravity);
     ~PhysicsSolver() = default;
@@ -18,9 +22,10 @@ struct PhysicsSolver {
     PhysicsSolver &operator=(const PhysicsSolver &other) = delete;
     PhysicsSolver &operator=(PhysicsSolver &&other) = default;
 
-    void step(Hitbox *hitbox, float delta, unsigned int substeps, bool shifting);
+    void step(Hitbox *hitbox, float delta, unsigned int substeps, bool shifting, bool is_swimming_up);
     bool is_block_inside(int x, int y, int z, Hitbox *hitbox);
 
+    FluidType check_fluid(Chunks *chunks, Hitbox *hitbox);
 private:
     vec3 gravity;
 };
