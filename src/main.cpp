@@ -1,17 +1,8 @@
-#define STB_IMAGE_IMPLEMENTATION
-#include "Global.hpp"
-#include "Window.hpp"
-#include "Chunks.hpp"
 #include "Network.hpp"
-#include "StateGame.hpp"
 #include <thread>
 #include <chrono>
 #include <iostream>
-
-Global global;
-
-constexpr auto WIDTH = 1280;
-constexpr auto HEIGHT = 720;
+#include <memory>
 
 int main(int argc, char *argv[]) {
 #ifdef _WIN32

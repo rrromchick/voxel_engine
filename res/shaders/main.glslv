@@ -14,9 +14,15 @@ uniform float u_gamma;
 
 void main() {
 	vec4 position = u_projview * u_model * vec4(v_position, 1.0);
-	a_color = vec4(pow(v_light.rgb, vec3(u_gamma)), 1.0f);
+	vec3 block_light = v_light.rgb;
+	vec3 sky_light = u_sky_light_color * v_light.a;
+
+	vec3 ambient_floor = vec3(0.05);
+	vec3 combined_light = block_light + sky_light + ambient_floor;
+
+	combined_light = min(combined_light, vec3(1.0));
+	a_color = vec4(pow(combined_light, vec3(1.0 / u_gamma)), 1.0);
+
 	a_tex_coord = v_tex_coord;
-	a_color.rgb += u_sky_light_color * v_light.a * 0.5;
-//	a_color.rgb *= 1.0 - position.z * 0.0025;
 	gl_Position = position;
 }
