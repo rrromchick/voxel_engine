@@ -9,6 +9,7 @@
 #include "Texture.hpp"
 #include "LineBatch.hpp"
 #include "Mesh.hpp"
+#include "ThreadPool.hpp"
 #include <array>
 
 struct Window;
@@ -25,6 +26,7 @@ struct Global {
     std::unique_ptr<Texture> texture;
     std::unique_ptr<LineBatch> line_batch;
     std::unique_ptr<Mesh> crosshair;
+    std::unique_ptr<ThreadPool> thread_pool;
 
     std::array<std::unique_ptr<Block>, 256> blocks;
 };

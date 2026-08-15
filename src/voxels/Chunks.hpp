@@ -19,7 +19,7 @@ struct Chunks {
     std::vector<std::unique_ptr<Mesh>> meshes_second;
 
     std::size_t volume;
-    unsigned int w, h, d;
+    int w, h, d;
     int ox, oy, oz;
 
     explicit Chunks(int w, int h, int d, int ox, int oy, int oz);

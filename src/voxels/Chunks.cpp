@@ -24,11 +24,15 @@ Chunks::Chunks(int w, int h, int d, int ox, int oy, int oz)
 }
 
 bool Chunks::is_obstacle(int x, int y, int z) {
+    int max_world_y = h * Chunk::HEIGHT;
+
+    if (y < 0) return true;
+    if (y >= max_world_y) return false;
+
     auto *vox = get(x, y, z);
-    if (vox == nullptr) {
-        return true;
-    }
-    return global.blocks[vox->id].get()->obstacle;
+    if (!vox) return false;
+
+    return vox->id != BlockId::AIR && vox->id != BlockId::WATER && vox->id != BlockId::LAVA;
 }
 
 bool Chunks::build_meshes(VoxelRenderer *renderer) {
@@ -36,9 +40,9 @@ bool Chunks::build_meshes(VoxelRenderer *renderer) {
     int near_y = 0;
     int near_z = 0;
     int min_distance = 1000000000;
-    for (unsigned int y = 0; y < h; y++) {
-        for (unsigned int z = 1; z < d - 1; z++) {
-            for (unsigned int x = 1; x < w - 1; x++) {
+    for (int y = 0; y < h; y++) {
+        for (int z = 1; z < d - 1; z++) {
+            for (int x = 1; x < w - 1; x++) {
                 int index = (y * d + z) * w + x;
                 auto *chunk = chunks[index].get();
                 if (chunk == nullptr) {
@@ -265,9 +269,9 @@ voxel *Chunks::ray_cast(
             end.y = py + t * dy;
             end.z = pz + t * dz;
 
-            iend.x = ix;
-            iend.y = iy;
-            iend.z = iz;
+            iend.x = static_cast<float>(ix);
+            iend.y = static_cast<float>(iy);
+            iend.z = static_cast<float>(iz);
 
             norm.x = norm.y = norm.z = 0.0f;
             if (stepped_index == 0) norm.x = -stepx;
@@ -278,24 +282,24 @@ voxel *Chunks::ray_cast(
 
         if (tx_max < ty_max) {
             if (tx_max < tz_max) {
-                ix += stepx;
+                ix += static_cast<int>(stepx);
                 t = tx_max;
                 tx_max += tx_delta;
                 stepped_index = 0;
             } else {
-                iz += stepz;
+                iz += static_cast<int>(stepz);
                 t = tz_max;
                 tz_max += tz_delta;
                 stepped_index = 2;
             }
         } else {
             if (ty_max < tz_max) {
-                iy += stepy;
+                iy += static_cast<int>(stepy);
                 t = ty_max;
                 ty_max += ty_delta;
                 stepped_index = 1;
             } else {
-                iz += stepz;
+                iz += static_cast<int>(stepz);
                 t = tz_max;
                 tz_max += tz_delta;
                 stepped_index = 2;
@@ -303,9 +307,9 @@ voxel *Chunks::ray_cast(
         }
     }
 
-    iend.x = ix;
-    iend.y = iy;
-    iend.z = iz;
+    iend.x = static_cast<float>(ix);
+    iend.y = static_cast<float>(iy);
+    iend.z = static_cast<float>(iz);
 
     end.x = px + t * dx;
     end.y = py + t * dy;
@@ -340,9 +344,9 @@ bool Chunks::load_visible(WorldFiles *world_files) {
     int near_y = 0;
     int near_z = 0;
     int min_distance = 1000000000;
-    for (unsigned int y = 0; y < h; y++) {
-        for (unsigned int z = 1; z < d - 1; z++) {
-            for (unsigned int x = 1; x < w - 1; x++) {
+    for (int y = 0; y < h; y++) {
+        for (int z = 1; z < d - 1; z++) {
+            for (int x = 1; x < w - 1; x++) {
                 int index = (y * d + z) * w + x;
                 auto *chunk = chunks[index].get();
                 if (chunk != nullptr) {
@@ -402,9 +406,9 @@ bool Chunks::decorate_visible() {
     int min_distance = 1000000000;
     bool found = false;
 
-    for (unsigned int y = 1; y < h - 1; y++) {
-        for (unsigned int z = 1; z < d - 1; z++) {
-            for (unsigned int x = 1; x < w - 1; x++) {
+    for (int y = 1; y < h - 1; y++) {
+        for (int z = 1; z < d - 1; z++) {
+            for (int x = 1; x < w - 1; x++) {
                 int index = (y * d + z) * w + x;
                 auto *chunk = chunks[index].get();
 
@@ -462,14 +466,14 @@ bool Chunks::decorate_visible() {
 }
 
 void Chunks::translate(int dx, int dy, int dz) {
-    for (unsigned int i = 0; i < volume; i++) {
+    for (int i = 0; i < volume; i++) {
         chunks_second[i].reset();
         meshes_second[i].reset();
     }
 
-    for (unsigned int y = 0; y < h; y++) {
-        for (unsigned int z = 0; z < d; z++) {
-            for (unsigned int x = 0; x < w; x++) {
+    for (int y = 0; y < h; y++) {
+        for (int z = 0; z < d; z++) {
+            for (int x = 0; x < w; x++) {
                 std::size_t old_idx = (y * d + z) * w + x;
                 int nx = x - dx;
                 int ny = y - dy;
