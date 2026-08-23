@@ -5,6 +5,7 @@
 #include "Camera.hpp"
 #include "Hitbox.hpp"
 #include "PhysicsSolver.hpp"
+#include "Player.hpp"
 
 struct StateGame : public State {
     StateGame() : State(STATE_MAIN_MENU) {}
@@ -22,6 +23,7 @@ private:
     std::unique_ptr<Camera> camera;
     std::unique_ptr<Hitbox> hitbox;
     std::unique_ptr<PhysicsSolver> physics_solver;
+    std::unique_ptr<Player> player;
 
     float cam_x = 0.0f, cam_y = 0.0f;
     float player_speed = 4.0f;

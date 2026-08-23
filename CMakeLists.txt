@@ -36,14 +36,15 @@ add_library(engine_core STATIC
     src/gfx/VoxelRenderer.cpp
     src/gfx/LineBatch.cpp
     src/voxels/Chunk.cpp
-    src/voxels/Chunks.cpp
     src/voxels/WorldGenerator.cpp
+    src/voxels/Level.cpp
     src/lighting/Lightmap.cpp
     src/lighting/LightSolver.cpp
     src/lighting/Lighting.cpp
     src/files/WorldFiles.cpp
     src/physics/PhysicsSolver.cpp
     src/state/StateGame.cpp
+    src/Player.cpp
 )
 
 target_include_directories(engine_core PUBLIC

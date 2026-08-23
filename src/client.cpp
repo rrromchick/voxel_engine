@@ -1,9 +1,10 @@
 #define STB_IMAGE_IMPLEMENTATION
 #include "Global.hpp"
 #include "Window.hpp"
-#include "Chunks.hpp"
+#include "Level.hpp"
 #include "Network.hpp"
 #include "StateGame.hpp"
+#include "ComponentManager.hpp"
 #include <thread>
 #include <chrono>
 #include <iostream>

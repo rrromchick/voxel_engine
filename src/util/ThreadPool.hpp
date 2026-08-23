@@ -16,6 +16,7 @@ struct ThreadPool {
         : stop(false) {
         if (threads == 0) threads = 1;
 
+        workers.reserve(threads);
         for (std::size_t i = 0; i < threads; i++) {
             workers.emplace_back([this]() {
                 while (true) {
@@ -23,7 +24,7 @@ struct ThreadPool {
                     {
                         std::unique_lock<std::mutex> lock(queue_mutex);
                         condition.wait(lock, [this]() {
-                            return stop || tasks.empty();
+                            return stop || !tasks.empty();
                         });
 
                         if (stop && tasks.empty()) {
@@ -41,9 +42,9 @@ struct ThreadPool {
     }
 
     ThreadPool(const ThreadPool &other) = delete;
-    ThreadPool(ThreadPool &&other) = default;
+    ThreadPool(ThreadPool &&other) = delete;
     ThreadPool &operator=(const ThreadPool &other) = delete;
-    ThreadPool &operator=(ThreadPool &&other) = default;
+    ThreadPool &operator=(ThreadPool &&other) = delete;
 
     template <typename F, typename ...Args>
     auto enqueue(F &&f, Args&& ...args) 
@@ -51,7 +52,10 @@ struct ThreadPool {
         using return_type = typename std::invoke_result_t<F, Args...>;
 
         auto task = std::make_shared<std::packaged_task<return_type()>>(
-            std::bind(std::forward<F>(f), std::forward<Args>(args)...));
+            [f = std::forward<F>(f), ...args = std::forward<Args>(args)]() mutable {
+                return f(std::forward<Args>(args)...);
+            }
+        );
 
         std::future<return_type> res = task->get_future();
         {
@@ -61,7 +65,7 @@ struct ThreadPool {
                 throw std::runtime_error("enqueue called on stopped ThreadPool");
             }
 
-            tasks.emplace([task]() { 
+            tasks.emplace([task = std::move(task)]() { 
                 (*task)(); 
             });
         }

@@ -35,7 +35,7 @@ enum BlockId : uint8_t {
     LAVA = 15
 };
 
-constexpr std::array<std::string, 16> block_id_to_str = {{
+const std::array<std::string, 16> block_id_to_str = {{
     "AIR", "GRASS", "DIRT", "LAMP", "STONE", "SAND", "GRAVEL",
     "CLAY", "WATER", "LOG", "LEAVES", "ROSE", "BUTTERCUP", "COAL",
     "COPPER", "LAVA"

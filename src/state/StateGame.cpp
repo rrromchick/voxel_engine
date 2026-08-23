@@ -7,10 +7,11 @@
 #include "Mesh.hpp"
 #include "LineBatch.hpp"
 #include "Window.hpp"
-#include "Chunks.hpp"
+#include "Level.hpp"
 #include "Lighting.hpp"
 #include "WorldFiles.hpp"
 #include "WorldGenerator.hpp"
+#include "Player.hpp"
 #include "imgui.h"
 #include "imgui_impl_glfw.h"
 #include "imgui_impl_opengl3.h"
@@ -22,9 +23,9 @@
 
 constexpr std::array<float, 8> vertices = {
     -0.01f, -0.01f,
-    0.01f, 0.01f,
-    -0.01f, 0.01f,
-    0.01f, -0.01f,
+     0.01f,  0.01f,
+    -0.01f,  0.01f,
+     0.01f, -0.01f,
 };
 
 constexpr std::array<int, 2> attrs = { 2, 0 };
@@ -110,9 +111,25 @@ void StateGame::init() {
         return;
     }
 
+    global.ecs = std::make_unique<ECS>();
+
+    global.ecs->register_type<TransformComponent>();
+    global.ecs->register_type<HitboxComponent>();
+    global.ecs->register_type<PlayerInputComponent>();
+
     global.generator = std::make_unique<WorldGenerator>();
     global.world_files = std::make_unique<WorldFiles>("world/", REGION_VOL * (Chunk::VOLUME * 2 + 8));
-    global.chunks = std::make_unique<Chunks>(16, 4, 16, 0, 0, 0);
+
+    auto spawn_cx = static_cast<int>(std::floor(32.0f / Chunk::WIDTH));
+    auto spawn_cy = static_cast<int>(std::floor(120.5f / Chunk::HEIGHT));
+    auto spawn_cz = static_cast<int>(std::floor(32.0f / Chunk::DEPTH));
+
+    global.ecs->level = std::make_unique<Level>(
+        16, 4, 16, 
+        spawn_cx - 8, 
+        spawn_cy - 2, 
+        spawn_cz - 8
+    );
     
     renderer = std::make_unique<VoxelRenderer>(1024 * 1024);
     global.line_batch = std::make_unique<LineBatch>(4096);
@@ -121,7 +138,8 @@ void StateGame::init() {
 
     global.crosshair = std::make_unique<Mesh>(vertices, attrs);
     camera = std::make_unique<Camera>(glm::vec3(32, 120.5f, 32), glm::radians(90.0f));
-    hitbox = std::make_unique<Hitbox>(glm::vec3(32, 120, 32), glm::vec3(0.2f, 0.9f, 0.2f));
+
+    player = std::make_unique<Player>(Player::create(glm::vec3(32, 120.0f, 32)));
 
     IMGUI_CHECKVERSION();
     ImGui::CreateContext();
@@ -144,7 +162,7 @@ void StateGame::update() {
     auto *wnd = global.window.get();
     auto *keyboard = wnd->get_keyboard();
     auto *mouse = wnd->get_mouse();
-    auto *chunks = global.chunks.get();
+    auto *level = global.ecs->level.get();
 
     if (keyboard->keys[GLFW_KEY_ESCAPE].pressed) {
         wnd->set_should_close(true);
@@ -153,9 +171,13 @@ void StateGame::update() {
         wnd->set_grabbed(!global.window->grabbed);
     }
 
+    auto &player_hb = player->hitbox();
     bool sprint = keyboard->keys[GLFW_KEY_LEFT_CONTROL].down;
-    bool shift = keyboard->keys[GLFW_KEY_LEFT_SHIFT].down && hitbox->grounded && !sprint;
+    bool shift = keyboard->keys[GLFW_KEY_LEFT_SHIFT].down && player_hb.grounded && !sprint;
     bool is_swimming_up = keyboard->keys[GLFW_KEY_SPACE].down;
+
+    player->set_shifting(shift);
+    player->set_swimming_up(is_swimming_up);
 
     auto speed = static_cast<float>(player_speed);
     glm::vec3 dir(0, 0, 0);
@@ -168,13 +190,15 @@ void StateGame::update() {
     auto delta_seconds = static_cast<float>(wnd->frame_delta) / 1'000'000'000.0f;
     delta_seconds = std::min<float>(delta_seconds, 0.05f);
 
-    auto substeps = static_cast<int>(wnd->frame_delta * 1000);
-    substeps = (substeps <= 0 ? 1 : (substeps > 100 ? 100 : substeps));
-    physics_solver->step(hitbox.get(), delta_seconds, substeps, shift, is_swimming_up);
+    unsigned int substeps = std::clamp(static_cast<unsigned int>(wnd->frame_delta * 1000.0f), 1u, 100u);
 
-    camera->position.x = hitbox->position.x;
-    camera->position.y = hitbox->position.y + 0.5f;
-    camera->position.z = hitbox->position.z;
+    physics_solver->step(delta_seconds, substeps);
+
+    auto &player_pos = player->transform().position;
+
+    camera->position.x = player_pos.x;
+    camera->position.y = player_pos.y + 0.5f;
+    camera->position.z = player_pos.z;
 
     auto dt = std::min<float>(1.0f, wnd->frame_delta * 16);
     if (shift) {
@@ -192,17 +216,21 @@ void StateGame::update() {
         dir = glm::normalize(dir);
     }
 
-    hitbox->velocity.x = dir.x * speed;
-    hitbox->velocity.z = dir.z * speed;
+    player_hb.velocity.x = dir.x * speed;
+    player_hb.velocity.z = dir.z * speed;
 
-    if (keyboard->keys[GLFW_KEY_SPACE].down && hitbox->grounded) {
-        hitbox->velocity.y = 6.0f;
+    if (keyboard->keys[GLFW_KEY_SPACE].down && player_hb.grounded) {
+        player->jump(6.0f);
     }
 
-    chunks->set_center(camera->position.x, 0, camera->position.z);
-    chunks->load_visible(global.world_files.get());
-    chunks->decorate_visible();
-    chunks->build_meshes(renderer.get());
+    auto p_chunk_x = static_cast<int>(std::floor(camera->position.x / Chunk::WIDTH));
+    auto p_chunk_y = static_cast<int>(std::floor(camera->position.y / Chunk::HEIGHT));
+    auto p_chunk_z = static_cast<int>(std::floor(camera->position.z / Chunk::DEPTH));
+
+    level->set_center(p_chunk_x, p_chunk_y, p_chunk_z);
+    level->load_visible(global.world_files.get());
+    level->decorate_visible();
+    level->build_meshes(renderer.get());
 
     if (wnd->grabbed) {
         cam_y += -mouse->delta.y / wnd->get_size().y * 2;
@@ -213,26 +241,23 @@ void StateGame::update() {
         camera->rotate(cam_y, cam_x, 0);
     }
 
-    glm::vec3 end, norm, iend;
-    auto *vox = chunks->ray_cast(camera->position, camera->front, 10.0f, end, norm, iend);
-    if (vox != nullptr) {
-        global.line_batch->box(iend.x + 0.5f, iend.y + 0.5f, iend.z + 0.5f,
-            1.005f, 1.005f, 1.005f, 0, 0, 0, 0.5f);
-            
+    if (auto hit = level->raycast(camera->position, camera->front, 10.0f)) {
+        global.line_batch->box(
+            hit->voxel_pos.x + 0.5f, 
+            hit->voxel_pos.y + 0.5f, 
+            hit->voxel_pos.z + 0.5f,
+            1.005f, 1.005f, 1.005f, 
+            0.0f, 0.0f, 0.0f, 0.5f);
+
         if (mouse->buttons[GLFW_MOUSE_BUTTON_1].pressed) {
-            auto x = static_cast<int>(iend.x);
-            auto y = static_cast<int>(iend.y);
-            auto z = static_cast<int>(iend.z);
-            chunks->set(x, y, z, 0);
-            global.lighting->on_block_set(x, y, z, 0);
+            level->set(hit->voxel_pos.x, hit->voxel_pos.y, hit->voxel_pos.z, 0);
+            global.lighting->on_block_set(hit->voxel_pos.x, hit->voxel_pos.y, hit->voxel_pos.z, 0);
         }
 
         if (mouse->buttons[GLFW_MOUSE_BUTTON_2].pressed) {
-            auto x = static_cast<int>(iend.x) + static_cast<int>(norm.x);
-            auto y = static_cast<int>(iend.y) + static_cast<int>(norm.y);
-            auto z = static_cast<int>(iend.z) + static_cast<int>(norm.z);
-            chunks->set(x, y, z, choosen_block);
-            global.lighting->on_block_set(x, y, z, choosen_block);
+            glm::ivec3 place_pos = hit->voxel_pos + hit->normal;
+            level->set(place_pos.x, place_pos.y, place_pos.z, choosen_block);
+            global.lighting->on_block_set(place_pos.x, place_pos.y, place_pos.z, choosen_block);
         }
     }
 }
@@ -246,10 +271,10 @@ void StateGame::render() {
     global.shader->uniform_3f("u_sky_light_color", 0.2f, 0.3f, 0.4f);
     global.texture->bind();
 
-    auto *chunks = global.chunks.get();
-    for (std::size_t i = 0; i < chunks->volume; i++) {
-        auto *chunk = chunks->chunks[i].get();
-        auto *mesh = chunks->meshes[i].get();
+    auto *level = global.ecs->level.get();
+    for (std::size_t i = 0; i < level->volume; i++) {
+        auto *chunk = level->chunks[i].get();
+        auto *mesh = level->meshes[i].get();
         if (!chunk || !mesh) continue;
 
         glm::mat4 model = glm::translate(glm::mat4(1.0f), glm::vec3(chunk->x * Chunk::WIDTH + 0.5f,
@@ -323,10 +348,10 @@ void StateGame::destroy() {
     ImGui_ImplGlfw_Shutdown();
     ImGui::DestroyContext();
 
-    auto *chunks = global.chunks.get();
-    if (chunks && global.world_files) {
-        for (unsigned int i = 0; i < chunks->volume; i++) {
-            auto *chunk = chunks->chunks[i].get();
+    auto *level = global.ecs ? global.ecs->level.get() : nullptr;
+    if (level && global.world_files) {
+        for (unsigned int i = 0; i < level->volume; i++) {
+            auto *chunk = level->chunks[i].get();
             if (!chunk) continue;
 
             std::span<const uint8_t> voxel_span {

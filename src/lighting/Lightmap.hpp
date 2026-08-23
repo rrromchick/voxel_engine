@@ -55,7 +55,15 @@ struct Lightmap {
     }
 
     inline void set(int x, int y, int z, int channel, int value) {
+        if (x < 0 || x >= Chunk::WIDTH || 
+            y < 0 || y >= Chunk::HEIGHT || 
+            z < 0 || z >= Chunk::DEPTH) {
+            return;
+        }
+
         const auto index = y * Chunk::DEPTH * Chunk::WIDTH + z * Chunk::WIDTH + x;
+        if (!map) return;
+
         map[index] = (map[index] & (0xFFFF & (~(0xF << (channel * 4))))) |
             (value << (channel << 2));
     }

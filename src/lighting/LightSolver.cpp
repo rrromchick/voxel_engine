@@ -1,6 +1,6 @@
 #include "LightSolver.hpp"
 #include "Lightmap.hpp"
-#include "Chunks.hpp"
+#include "Level.hpp"
 #include "Chunk.hpp"
 #include "Global.hpp"
 #include "Block.hpp"
@@ -11,21 +11,21 @@ void LightSolver::add(int x, int y, int z, int emission) {
     LightEntry entry { x, y, z, emission };
     add_queue.push(entry);
 
-    auto *chunk = global.chunks->get_chunk_by_voxel(entry.x, entry.y, entry.z);    
+    auto *chunk = global.ecs->level->get_chunk_by_voxel(entry.x, entry.y, entry.z);    
     chunk->modified = true;
     chunk->lightmap->set(entry.x - chunk->x * Chunk::WIDTH, entry.y - chunk->y * Chunk::HEIGHT, 
         entry.z - chunk->z * Chunk::DEPTH, channel, entry.light);
 }
 
 void LightSolver::add(int x, int y, int z) {
-    int light = global.chunks->get_light(x, y, z, channel);
+    int light = global.ecs->level->get_light(x, y, z, channel);
     if (light > 1) {
         add(x, y, z, light);
     }
 }
 
 void LightSolver::remove(int x, int y, int z) {
-    auto *chunk = global.chunks->get_chunk_by_voxel(x, y, z);
+    auto *chunk = global.ecs->level->get_chunk_by_voxel(x, y, z);
     if (chunk == nullptr) return;
 
     int light = chunk->lightmap->get(
@@ -52,7 +52,7 @@ void LightSolver::solve() {
         -1, 0, 0
     };
 
-    auto *chunks = global.chunks.get();
+    auto *level = global.ecs->level.get();
 
     while (!rem_queue.empty()) {
         auto entry = rem_queue.front();
@@ -62,9 +62,9 @@ void LightSolver::solve() {
             int x = entry.x + coords[i * 3 + 0];
             int y = entry.y + coords[i * 3 + 1];
             int z = entry.z + coords[i * 3 + 2];
-            auto *chunk = chunks->get_chunk_by_voxel(x, y, z);
+            auto *chunk = level->get_chunk_by_voxel(x, y, z);
             if (chunk) {
-                auto light = chunks->get_light(x, y, z, channel);
+                auto light = level->get_light(x, y, z, channel);
                 if (light != 0 && light == entry.light - 1) {
                     LightEntry nentry { x, y, z, light };
                     rem_queue.push(nentry);
@@ -91,10 +91,10 @@ void LightSolver::solve() {
             int x = entry.x + coords[i * 3 + 0];
             int y = entry.y + coords[i * 3 + 1];
             int z = entry.z + coords[i * 3 + 2];
-            auto *chunk = chunks->get_chunk_by_voxel(x, y, z);
+            auto *chunk = level->get_chunk_by_voxel(x, y, z);
             if (chunk) {
-                auto light = chunks->get_light(x, y, z, channel);
-                auto *v = chunks->get(x, y, z);
+                auto light = level->get_light(x, y, z, channel);
+                auto *v = level->get_voxel(x, y, z);
                 auto *block = global.blocks[v->id].get();
 
                 if (block->light_passing && light < entry.light - 1) {

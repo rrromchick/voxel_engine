@@ -10,14 +10,13 @@
 #include "LineBatch.hpp"
 #include "Mesh.hpp"
 #include "ThreadPool.hpp"
+#include "ECS.hpp"
 #include <array>
 
 struct Window;
-struct Chunks;
 
 struct Global {
 	std::unique_ptr<Window> window;
-    std::unique_ptr<Chunks> chunks;
 	std::unique_ptr<Time> time;
     std::unique_ptr<Lighting> lighting;
     std::unique_ptr<WorldGenerator> generator;
@@ -27,6 +26,7 @@ struct Global {
     std::unique_ptr<LineBatch> line_batch;
     std::unique_ptr<Mesh> crosshair;
     std::unique_ptr<ThreadPool> thread_pool;
+    std::unique_ptr<ECS> ecs;
 
     std::array<std::unique_ptr<Block>, 256> blocks;
 };

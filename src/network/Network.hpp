@@ -10,7 +10,7 @@
 #ifdef _WIN32
     #include <winsock2.h>
     #include <ws2tcpip.h>
-    
+
     using socket_t = SOCKET;
     constexpr socket_t INVALID_SOCK = INVALID_SOCKET;
     #define CLOSE_SOCK(s) closesocket(s)
@@ -20,7 +20,7 @@
     #include <fcntl.h>
     #include <unistd.h>
     #include <errno.h>
-    
+
     using socket_t = int;
     constexpr socket_t INVALID_SOCK = -1;
     #define CLOSE_SOCK(s) close(s)
@@ -59,15 +59,15 @@ struct Server {
 };
 
 struct TcpConnection : public Connection {
-    explicit TcpConnection(socket_t descriptor)
+    explicit TcpConnection(socket_t descriptor) 
         : sock(descriptor), connected(descriptor != INVALID_SOCK) {
         if (connected) {
             set_non_blocking(sock);
         }
     }
 
-    ~TcpConnection() override { 
-        close(); 
+    ~TcpConnection() override {
+        close();
     }
 
     int send(const char *buffer, size_t length) override {
@@ -82,11 +82,11 @@ struct TcpConnection : public Connection {
         if (bytes == 0) {
             connected = false;
         } else if (bytes < 0) {
-#ifdef _WIN32
+#ifdef _WIN32   
             if (WSAGetLastError() == WSAEWOULDBLOCK) return 0;
 #else
             if (errno == EAGAIN || errno == EWOULDBLOCK) return 0;
-#endif
+#endif  
             connected = false;
         }
         return bytes;
@@ -124,7 +124,7 @@ struct TcpServer : public Server {
         addr.sin_family = AF_INET;
         addr.sin_addr.s_addr = INADDR_ANY;
         addr.sin_port = htons(port);
-        
+
         if (::bind(listen_sock, reinterpret_cast<sockaddr*>(&addr), sizeof(addr)) < 0) {
             return false;
         }
@@ -141,7 +141,7 @@ struct TcpServer : public Server {
 
         sockaddr_in client_addr {};
         socklen_t addr_len = sizeof(client_addr);
-        socket_t client_sock = ::accept(listen_sock, 
+        socket_t client_sock = ::accept(listen_sock,
             reinterpret_cast<sockaddr*>(&client_addr), &addr_len);
         if (client_sock != INVALID_SOCK) {
             clients.push_back(std::make_shared<TcpConnection>(client_sock));
@@ -151,7 +151,7 @@ struct TcpServer : public Server {
             std::remove_if(clients.begin(), clients.end(),
                 [](const std::shared_ptr<Connection> &conn) { return !conn->is_open(); }),
             clients.end());
-    }    
+    }
 
     void stop() override {
         clients.clear();
@@ -161,11 +161,11 @@ struct TcpServer : public Server {
         }
     }
 
-    int get_port() const override { 
-        return port; 
+    int get_port() const override {
+        return port;
     }
 
-    bool is_open() const override { 
+    bool is_open() const override {
         return listen_sock != INVALID_SOCK;
     }
 
@@ -173,11 +173,12 @@ struct TcpServer : public Server {
         return clients;
     }
 
-private:    
+private:
     socket_t listen_sock = INVALID_SOCK;
     int port = 0;
     std::vector<std::shared_ptr<Connection>> clients;
 };
+
 
 struct UdpConnection : public Connection {
     UdpConnection(socket_t descriptor, const sockaddr_in &peer)
@@ -187,7 +188,7 @@ struct UdpConnection : public Connection {
         }
     }
 
-    ~UdpConnection() override { 
+    ~UdpConnection() override {
         close();
     }
 
@@ -202,7 +203,7 @@ struct UdpConnection : public Connection {
         socklen_t len = sizeof(peer_addr);
         int bytes = ::recvfrom(sock, buffer, static_cast<int>(length), 0,
             reinterpret_cast<sockaddr*>(&peer_addr), &len);
-
+        
         if (bytes < 0) {
 #ifdef _WIN32
             if (WSAGetLastError() == WSAEWOULDBLOCK) return 0;
@@ -224,7 +225,7 @@ struct UdpConnection : public Connection {
 
     bool is_open() const override { return open_state; }
 
-private:    
+private:
     socket_t sock = INVALID_SOCK;
     sockaddr_in peer_addr {};
     bool open_state = false;
@@ -334,7 +335,7 @@ struct Network {
     const std::vector<std::shared_ptr<Connection>> &get_connections() const {
         return outbound_connections;
     }
-
+    
 private:
     std::vector<std::shared_ptr<Server>> servers;
     std::vector<std::shared_ptr<Connection>> outbound_connections;

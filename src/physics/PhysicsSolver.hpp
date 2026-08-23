@@ -1,31 +1,30 @@
 #pragma once
 
 #include <glm/glm.hpp>
-#include <glm/ext.hpp>
-#include <glm/gtc/matrix_transform.hpp>
 #include "Global.hpp"
+#include "Player.hpp"
 
-using namespace glm;
-
-struct Hitbox;
+struct Level;
 
 enum class FluidType {
     NONE, WATER, LAVA
 };
 
 struct PhysicsSolver {
-    explicit PhysicsSolver(vec3 gravity);
-    ~PhysicsSolver() = default;
+    explicit PhysicsSolver(glm::vec3 gravity);
+    
+    void step(float delta, unsigned int substeps);
 
-    PhysicsSolver(const PhysicsSolver &other) = delete;
-    PhysicsSolver(PhysicsSolver &&other) = default;
-    PhysicsSolver &operator=(const PhysicsSolver &other) = delete;
-    PhysicsSolver &operator=(PhysicsSolver &&other) = default;
+    static FluidType check_fluid(Level *level, const glm::vec3 &pos, const glm::vec3 &half);
+    static bool is_block_inside(int x, int y, int z, const glm::vec3 &pos, const glm::vec3 &half);
 
-    void step(Hitbox *hitbox, float delta, unsigned int substeps, bool shifting, bool is_swimming_up);
-    bool is_block_inside(int x, int y, int z, Hitbox *hitbox);
-
-    FluidType check_fluid(Chunks *chunks, Hitbox *hitbox);
 private:
-    vec3 gravity;
+    glm::vec3 gravity;
+
+    void step_entity(
+        TransformComponent &trans,
+        HitboxComponent &hitbox,
+        PlayerInputComponent *input,
+        Level *level,
+        float dt);
 };
