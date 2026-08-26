@@ -111,11 +111,40 @@ void StateGame::init() {
         return;
     }
 
+    test_model = std::make_unique<VoxelModel>();
+    if (!test_model->load_from_vox("res/vox/chr_knight.vox")) {
+        std::cerr << "Failed to load voxel model" << std::endl;
+    }
+
     global.ecs = std::make_unique<ECS>();
 
     global.ecs->register_type<TransformComponent>();
     global.ecs->register_type<HitboxComponent>();
     global.ecs->register_type<PlayerInputComponent>();
+
+    test_model_entity = global.ecs->create().value();
+
+    TransformComponent transform_comp;
+    transform_comp.position = glm::vec3(32.0f, 130.0f, 32.0f);
+    transform_comp.rotation = glm::vec3(0.0f);
+    transform_comp.scale    = glm::vec3(1.0f);
+
+    auto &transform = global.ecs->add_component<TransformComponent>(
+        test_model_entity, 
+        std::move(transform_comp)
+    );
+
+    float scale_factor = 0.1f;
+
+    HitboxComponent hitbox_comp;
+    hitbox_comp.halfsize = test_model->tight_aabb.get_size() * (scale_factor * 0.5f);
+    hitbox_comp.velocity = glm::vec3(0.0f);
+    hitbox_comp.grounded = false;
+
+    auto &hitbox = global.ecs->add_component<HitboxComponent>(
+        test_model_entity, 
+        std::move(hitbox_comp)
+    );
 
     global.generator = std::make_unique<WorldGenerator>();
     global.world_files = std::make_unique<WorldFiles>("world/", REGION_VOL * (Chunk::VOLUME * 2 + 8));
@@ -269,18 +298,37 @@ void StateGame::render() {
     global.shader->uniform_matrix("u_projview", camera->get_projection() * camera->get_view());
     global.shader->uniform_1f("u_gamma", 2.2f);
     global.shader->uniform_3f("u_sky_light_color", 0.2f, 0.3f, 0.4f);
+    
     global.texture->bind();
-
     auto *level = global.ecs->level.get();
     for (std::size_t i = 0; i < level->volume; i++) {
         auto *chunk = level->chunks[i].get();
         auto *mesh = level->meshes[i].get();
         if (!chunk || !mesh) continue;
 
-        glm::mat4 model = glm::translate(glm::mat4(1.0f), glm::vec3(chunk->x * Chunk::WIDTH + 0.5f,
-            chunk->y * Chunk::HEIGHT + 0.5f, chunk->z * Chunk::DEPTH + 0.5f));
+        glm::mat4 model = glm::translate(glm::mat4(1.0f), glm::vec3(
+            chunk->x * Chunk::WIDTH + 0.5f,
+            chunk->y * Chunk::HEIGHT + 0.5f,
+            chunk->z * Chunk::DEPTH + 0.5f
+        ));
         global.shader->uniform_matrix("u_model", model);
         mesh->draw(GL_TRIANGLES);
+    }
+
+    if (test_model && global.ecs->has_component<TransformComponent>(test_model_entity)) {
+        const auto &transform = global.ecs->component<TransformComponent>(test_model_entity);
+
+        float scale_factor = 0.1f; 
+        glm::vec3 center_offset = -test_model->tight_aabb.get_center();
+
+        glm::mat4 model_matrix = glm::mat4(1.0f);
+        model_matrix = glm::translate(model_matrix, transform.position);
+        model_matrix = glm::rotate(model_matrix, transform.rotation.y, glm::vec3(0, 1, 0));
+        model_matrix = glm::scale(model_matrix, glm::vec3(scale_factor)); // <--- Apply scale here
+        model_matrix = glm::translate(model_matrix, center_offset);
+
+        global.shader->uniform_matrix("u_model", model_matrix);
+        test_model->draw();
     }
 
     global.crosshair_shader->use();

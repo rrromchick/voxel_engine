@@ -45,6 +45,7 @@ add_library(engine_core STATIC
     src/physics/PhysicsSolver.cpp
     src/state/StateGame.cpp
     src/Player.cpp
+    src/gfx/VoxelModel.cpp
 )
 
 target_include_directories(engine_core PUBLIC

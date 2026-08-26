@@ -5,6 +5,8 @@
 
 struct TransformComponent : public ECS::Component<TransformComponent> {
     glm::vec3 position{0.0f};
+    glm::vec3 rotation{0.0f};
+    glm::vec3 scale{1.0f};
 };
 
 struct HitboxComponent : public ECS::Component<HitboxComponent> {

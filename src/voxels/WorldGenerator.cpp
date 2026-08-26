@@ -308,18 +308,33 @@ void WorldGenerator::generate_terrain(Chunk *chunk) const {
 }
 
 void WorldGenerator::carve_caves(Chunk *chunk) const {
-    constexpr float seed = 2.0f;
     int chunk_world_x = chunk->x * Chunk::WIDTH;
     int chunk_world_y = chunk->y * Chunk::HEIGHT;
     int chunk_world_z = chunk->z * Chunk::DEPTH;
 
+    constexpr float scale = 0.02f;
+    constexpr float threshold = 0.65f;
+
     for (int x = 0; x < Chunk::WIDTH; x++) {
+        int world_x = chunk_world_x + x;
         for (int z = 0; z < Chunk::DEPTH; z++) {
+            int world_z = chunk_world_z + z;
             for (int y = 0; y < Chunk::HEIGHT; y++) {
                 int world_y = chunk_world_y + y;
-                int index = (y * Chunk::DEPTH + z) * Chunk::WIDTH + x;
-                
-                // Cave carving logic
+
+                if (world_y <= 4 || world_y >= 128) continue;
+
+                glm::vec3 pos = glm::vec3(world_x, world_y, world_z) * scale;
+                float noise_val = glm::simplex(pos);
+
+                float noise_a = glm::simplex(pos);
+                float noise_b = glm::simplex(pos + glm::vec3(100.0f));
+                float tunnel_val = std::abs(noise_a) + std::abs(noise_b);
+
+                if (noise_val > threshold) {
+                    int index = (y * Chunk::DEPTH + z) * Chunk::WIDTH + x;
+                    chunk->voxels[index].id = BlockId::AIR;
+                }
             }
         }
     }
