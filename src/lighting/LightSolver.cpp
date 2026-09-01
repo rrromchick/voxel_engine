@@ -8,11 +8,7 @@
 void LightSolver::add(int x, int y, int z, int emission) {
     if (emission <= 1) return;
 
-<<<<<<< HEAD
-    LightEntry entry { x, y, z, emission };
-=======
     LightEntry entry { x, y, z, (unsigned char) emission };
->>>>>>> 484eb3d (switched to clang)
     add_queue.push(entry);
 
     auto *chunk = global.ecs->level->get_chunk_by_voxel(entry.x, entry.y, entry.z);    
@@ -39,11 +35,7 @@ void LightSolver::remove(int x, int y, int z) {
         return;
     }
 
-<<<<<<< HEAD
-    LightEntry entry { x, y, z, light };
-=======
     LightEntry entry { x, y, z, (unsigned char) light };
->>>>>>> 484eb3d (switched to clang)
     rem_queue.push(entry);
 
     chunk->lightmap->set(entry.x - chunk->x * Chunk::WIDTH, entry.y - chunk->y * Chunk::HEIGHT,
@@ -111,11 +103,7 @@ void LightSolver::solve() {
                         channel, entry.light - 1);
                     chunk->modified = true;
 
-<<<<<<< HEAD
-                    LightEntry nentry { x, y, z, entry.light - 1 };
-=======
                     LightEntry nentry { x, y, z, static_cast<unsigned char>(entry.light - 1) };
->>>>>>> 484eb3d (switched to clang)
                     add_queue.push(nentry);
                 }
             }

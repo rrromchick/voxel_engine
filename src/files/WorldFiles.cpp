@@ -3,10 +3,7 @@
 #include <fstream>
 #include <cstring>
 #include <algorithm>
-<<<<<<< HEAD
-=======
 #include <vector>
->>>>>>> 484eb3d (switched to clang)
 
 static uint32_t bytes_to_uint32(std::span<const uint8_t> src) {
     uint32_t value;
