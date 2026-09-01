@@ -86,4 +86,14 @@ add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E copy_directory
     "${CMAKE_CURRENT_SOURCE_DIR}/res"
     "$<TARGET_FILE_DIR:${PROJECT_NAME}>/res"
+<<<<<<< HEAD
 )
+=======
+)
+
+if(CMAKE_CXX_COMPILER_ID MATCHES "Clang")
+    add_compile_options(-g -O0)
+    # Add allow-multiple-definition to ignore libstdc++ / typeinfo inline collisions
+    add_link_options(-Wl,-pdb= -Wl,--allow-multiple-definition)
+endif()
+>>>>>>> 484eb3d (switched to clang)

@@ -2,6 +2,11 @@
 
 #include <functional>
 #include <stdint.h>
+<<<<<<< HEAD
+=======
+#include <limits>
+#include <cstring>
+>>>>>>> 484eb3d (switched to clang)
 
 constexpr auto TICKS_PER_SECOND = 120;
 

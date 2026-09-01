@@ -2,14 +2,27 @@
     "version": 3,
     "configurePresets": [
         {
+<<<<<<< HEAD
             "name": "windows-base",
+=======
+            "name": "mingw-clang-base",
+>>>>>>> 484eb3d (switched to clang)
             "hidden": true,
             "generator": "Ninja",
             "binaryDir": "${sourceDir}/out/build/${presetName}",
             "installDir": "${sourceDir}/out/install/${presetName}",
             "cacheVariables": {
+<<<<<<< HEAD
                 "CMAKE_C_COMPILER": "cl.exe",
                 "CMAKE_CXX_COMPILER": "cl.exe"
+=======
+                "CMAKE_C_COMPILER": "clang",
+                "CMAKE_CXX_COMPILER": "clang++",
+                "CMAKE_C_FLAGS": "--target=x86_64-w64-mingw32",
+                "CMAKE_CXX_FLAGS": "--target=x86_64-w64-mingw32",
+                "CMAKE_EXE_LINKER_FLAGS": "--target=x86_64-w64-mingw32 -static-libgcc -static-libstdc++ -Wl,--allow-multiple-definition",
+                "CMAKE_MAKE_PROGRAM": "C:/Users/Notebook/AppData/Local/Microsoft/WinGet/Packages/Ninja-build.Ninja_Microsoft.Winget.Source_8wekyb3d8bbwe/ninja.exe"
+>>>>>>> 484eb3d (switched to clang)
             },
             "condition": {
                 "type": "equals",
@@ -18,6 +31,7 @@
             }
         },
         {
+<<<<<<< HEAD
             "name": "x64-debug",
             "displayName": "x64 Debug",
             "inherits": "windows-base",
@@ -25,11 +39,17 @@
                 "value": "x64",
                 "strategy": "external"
             },
+=======
+            "name": "mingw-x64-debug",
+            "displayName": "MinGW Clang x64 Debug",
+            "inherits": "mingw-clang-base",
+>>>>>>> 484eb3d (switched to clang)
             "cacheVariables": {
                 "CMAKE_BUILD_TYPE": "Debug"
             }
         },
         {
+<<<<<<< HEAD
             "name": "x64-release",
             "displayName": "x64 Release",
             "inherits": "x64-debug",
@@ -99,3 +119,14 @@
         }
     ]
 }
+=======
+            "name": "mingw-x64-release",
+            "displayName": "MinGW Clang x64 Release",
+            "inherits": "mingw-clang-base",
+            "cacheVariables": {
+                "CMAKE_BUILD_TYPE": "Release"
+            }
+        }
+    ]
+}
+>>>>>>> 484eb3d (switched to clang)
