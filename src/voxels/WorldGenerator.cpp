@@ -322,7 +322,7 @@ void WorldGenerator::carve_caves(Chunk *chunk) const {
             for (int y = 0; y < Chunk::HEIGHT; y++) {
                 int world_y = chunk_world_y + y;
 
-                if (world_y <= 4 || world_y >= 128) continue;
+                if (world_y <= 4 || world_y >= 256) continue;
 
                 glm::vec3 pos = glm::vec3(world_x, world_y, world_z) * scale;
                 float noise_val = glm::simplex(pos);

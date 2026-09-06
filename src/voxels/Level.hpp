@@ -55,9 +55,6 @@ struct Level {
     bool is_solid(int world_x, int world_y, int world_z) const;
     bool is_obstacle(int world_x, int world_y, int world_z) const;
     bool intersects_aabb(const glm::vec3 &min, const glm::vec3 &max) const;
-
-    // voxel *ray_cast(glm::vec3 origin, glm::vec3 dir, float max_dist,
-    //     glm::vec3 &end, glm::vec3 &norm, glm::vec3 &iend) const;
     
     std::optional<RaycastHit> raycast(const glm::vec3 &origin, const glm::vec3 &dir, float max_distance) const;
 

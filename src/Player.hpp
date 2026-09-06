@@ -1,24 +1,8 @@
 #pragma once
 
 #include "ECS.hpp"
+#include "Components.hpp"
 #include <glm/glm.hpp>
-
-struct TransformComponent : public ECS::Component<TransformComponent> {
-    glm::vec3 position{0.0f};
-    glm::vec3 rotation{0.0f};
-    glm::vec3 scale{1.0f};
-};
-
-struct HitboxComponent : public ECS::Component<HitboxComponent> {
-    glm::vec3 halfsize{0.3f, 0.9f, 0.3f};
-    glm::vec3 velocity{0.0f};
-    bool grounded{false};
-};
-
-struct PlayerInputComponent : public ECS::Component<PlayerInputComponent> {
-    bool shifting{false};
-    bool is_swimming_up{false};
-};
 
 struct Player : public ECS::Object {
     using ECS::Object::Object;

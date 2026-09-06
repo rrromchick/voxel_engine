@@ -10,6 +10,7 @@
 #include "LineBatch.hpp"
 #include "Mesh.hpp"
 #include "ThreadPool.hpp"
+#include "Network.hpp"
 #include "ECS.hpp"
 #include <array>
 
@@ -27,6 +28,7 @@ struct Global {
     std::unique_ptr<Mesh> crosshair;
     std::unique_ptr<ThreadPool> thread_pool;
     std::unique_ptr<ECS> ecs;
+    std::unique_ptr<Network> network;
 
     std::array<std::unique_ptr<Block>, 256> blocks;
 };

@@ -1,7 +1,7 @@
 #include "PhysicsSolver.hpp"
 #include "Global.hpp"
 #include "Level.hpp"
-#include "Player.hpp"
+#include "Components.hpp"
 #include <algorithm>
 #include <cmath>
 
@@ -64,7 +64,7 @@ void PhysicsSolver::step(float delta, unsigned int substeps) {
         for (std::size_t obj_id = 0; obj_id < ecs.size; ++obj_id) {
             auto obj = typename ECS::Object{ &ecs, static_cast<EntityId>(obj_id) };
 
-            if (!obj.p) continue; 
+            if (!obj.p) continue;
 
             if (obj.template has<TransformComponent>() && obj.template has<HitboxComponent>()) {
                 auto &trans = obj.template get<TransformComponent>();
@@ -120,7 +120,7 @@ void PhysicsSolver::step_entity(
 
         if (is_swimming_up) {
             auto head_x = static_cast<int>(std::floor(pos.x));
-            auto head_y = static_cast<int>(std::floor(pos.y + half.y + 0.1f));
+            auto head_y = static_cast<int>(std::floor(pos.y + half.y * 2.0f + 0.1f));
             auto head_z = static_cast<int>(std::floor(pos.z));
 
             auto *block_above = level->get_voxel(head_x, head_y, head_z);
@@ -148,68 +148,33 @@ void PhysicsSolver::step_entity(
     pos.y += vel.y * dt;
     hitbox.grounded = false;
 
-    auto min_x = static_cast<int>(std::floor(pos.x - half.x + E));
-    auto max_x = static_cast<int>(std::floor(pos.x + half.x - E));
-    auto min_z = static_cast<int>(std::floor(pos.z - half.z + E));
-    auto max_z = static_cast<int>(std::floor(pos.z + half.z - E));
+    glm::vec3 center_pos = pos + glm::vec3(0.0f, half.y, 0.0f);
 
     if (vel.y <= 0.0f) {
-        auto min_y = static_cast<int>(std::floor(pos.y - half.y));
-        auto max_y = static_cast<int>(std::floor(pos.y + half.y - E));
-
-        for (int y = max_y; y >= min_y; y--) {
-            bool hit = false;
-            for (int x = min_x; x <= max_x; x++) {
-                for (int z = min_z; z <= max_z; z++) {
-                    if (level->is_obstacle(x, y, z)) {
-                        pos.y = static_cast<float>(y + 1) + half.y;
-                        vel.y = 0.0f;
-                        hitbox.grounded = true;
-
-                        if (fluid == FluidType::NONE) {
-                            constexpr float friction = 18.0f;
-                            vel.x *= std::max(0.0f, 1.0f - dt * friction);
-                            vel.z *= std::max(0.0f, 1.0f - dt * friction);
-                        }
-                        hit = true;
-                        break;
-                    }
-                }
-                if (hit) break;
-            }
-            if (hit) break;
+        if (check_collision(center_pos)) {
+            int foot_y = static_cast<int>(std::floor(pos.y));
+            pos.y = static_cast<float>(foot_y + 1);
+            vel.y = 0.0f;
+            hitbox.grounded = true;
         }
     } else {
-        auto min_y = static_cast<int>(std::floor(pos.y - half.y + E));
-        auto max_y = static_cast<int>(std::floor(pos.y + half.y - E));
-
-        for (int y = min_y; y <= max_y; y++) {
-            bool hit = false;
-            for (int x = min_x; x <= max_x; x++) {
-                for (int z = min_z; z <= max_z; z++) {
-                    if (level->is_obstacle(x, y, z)) {
-                        pos.y = static_cast<float>(y) - half.y - E;
-                        vel.y = 0.0f;
-                        hit = true;
-                        break;
-                    }
-                }
-                if (hit) break;
-            }
-            if (hit) break;
+        if (check_collision(center_pos)) {
+            int head_y = static_cast<int>(std::floor(pos.y + half.y * 2.0f));
+            pos.y = static_cast<float>(head_y) - half.y * 2.0f - E;
+            vel.y = 0.0f;
         }
     }
 
-    vel.x += gravity.x * dt;
+    hitbox.position = pos + glm::vec3(0.0f, half.y, 0.0f);
+
     float target_x = pos.x + vel.x * dt;
     glm::vec3 test_pos_x = pos;
     test_pos_x.x = target_x;
 
-    if (check_collision(test_pos_x)) {
+    if (check_collision(test_pos_x + glm::vec3(0.0f, half.y, 0.0f))) {
         bool stepped = false;
         if (hitbox.grounded && fluid == FluidType::NONE) {
-            glm::vec3 step_pos = test_pos_x;
-            step_pos.y += STEP_HEIGHT;
+            glm::vec3 step_pos = test_pos_x + glm::vec3(0.0f, half.y + STEP_HEIGHT, 0.0f);
 
             if (!check_collision(step_pos)) {
                 pos.x = target_x;
@@ -232,16 +197,16 @@ void PhysicsSolver::step_entity(
         pos.x = target_x;
     }
 
-    vel.z += gravity.z * dt;
+    hitbox.position = pos + glm::vec3(0.0f, half.y, 0.0f);
+
     float target_z = pos.z + vel.z * dt;
     glm::vec3 test_pos_z = pos;
     test_pos_z.z = target_z;
 
-    if (check_collision(test_pos_z)) {
+    if (check_collision(test_pos_z + glm::vec3(0.0f, half.y, 0.0f))) {
         bool stepped = false;
         if (hitbox.grounded && fluid == FluidType::NONE) {
-            glm::vec3 step_pos = test_pos_z;
-            step_pos.y += STEP_HEIGHT;
+            glm::vec3 step_pos = test_pos_z + glm::vec3(0.0f, half.y + STEP_HEIGHT, 0.0f);
 
             if (!check_collision(step_pos)) {
                 pos.z = target_z;
@@ -264,8 +229,10 @@ void PhysicsSolver::step_entity(
         pos.z = target_z;
     }
 
+    hitbox.position = pos + glm::vec3(0.0f, half.y, 0.0f);
+
     if (shifting && hitbox.grounded && fluid == FluidType::NONE) {
-        int check_y = static_cast<int>(std::floor(pos.y - half.y - 0.5f));
+        int check_y = static_cast<int>(std::floor(pos.y - E));
 
         bool ground_below_z = false;
         for (auto x = static_cast<int>(std::floor(prev_x - half.x + E)); x <= static_cast<int>(std::floor(prev_x + half.x - E)); x++) {
@@ -295,4 +262,6 @@ void PhysicsSolver::step_entity(
             vel.x = 0.0f;
         }
     }
+
+    hitbox.position = pos + glm::vec3(0.0f, half.y, 0.0f);
 }

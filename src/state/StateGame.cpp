@@ -1,4 +1,3 @@
-#define STB_IMAGE_IMPLEMENTATION
 #include "StateGame.hpp"
 #include "Global.hpp"
 #include "Block.hpp"
@@ -17,6 +16,7 @@
 #include "imgui_impl_opengl3.h"
 #include <GLFW/glfw3.h>
 #include <glm/gtc/matrix_transform.hpp>
+#include <glm/glm.hpp>
 #include <algorithm>
 #include <iostream>
 #include <array>
@@ -104,201 +104,169 @@ static bool init_assets() {
     return global.texture != nullptr;
 }
 
+void StateGame::request_entity_spawn(const glm::vec3 &spawn_pos) {
+    if (!server_conn || !server_conn->is_open()) return;
+
+    Packet packet(PacketType::EntitySpawn);
+    packet.write_vec3(spawn_pos);
+    server_conn->send_packet(packet);
+}
+
 void StateGame::init() {
     setup_definitions();
-    if (!init_assets()) {
-        std::cerr << "Failed to initialize game assets." << std::endl;
-        return;
-    }
+    init_assets();
 
-    test_model = std::make_unique<VoxelModel>();
-    if (!test_model->load_from_vox("res/vox/chr_knight.vox")) {
-        std::cerr << "Failed to load voxel model" << std::endl;
-    }
+    player_model = std::make_shared<VoxelModel>();
+    player_model->load_from_vox("res/vox/chr_knight.vox");
 
     global.ecs = std::make_unique<ECS>();
-
     global.ecs->register_type<TransformComponent>();
     global.ecs->register_type<HitboxComponent>();
     global.ecs->register_type<PlayerInputComponent>();
-
-    test_model_entity = global.ecs->create().value();
-
-    TransformComponent transform_comp;
-    transform_comp.position = glm::vec3(32.0f, 130.0f, 32.0f);
-    transform_comp.rotation = glm::vec3(0.0f);
-    transform_comp.scale    = glm::vec3(1.0f);
-
-    auto &transform = global.ecs->add_component<TransformComponent>(
-        test_model_entity, 
-        std::move(transform_comp)
-    );
-
-    float scale_factor = 0.1f;
-
-    HitboxComponent hitbox_comp;
-    hitbox_comp.halfsize = test_model->tight_aabb.get_size() * (scale_factor * 0.5f);
-    hitbox_comp.velocity = glm::vec3(0.0f);
-    hitbox_comp.grounded = false;
-
-    auto &hitbox = global.ecs->add_component<HitboxComponent>(
-        test_model_entity, 
-        std::move(hitbox_comp)
-    );
+    global.ecs->register_type<RenderComponent>();
 
     global.generator = std::make_unique<WorldGenerator>();
     global.world_files = std::make_unique<WorldFiles>("world/", REGION_VOL * (Chunk::VOLUME * 2 + 8));
 
-    auto spawn_cx = static_cast<int>(std::floor(32.0f / Chunk::WIDTH));
-    auto spawn_cy = static_cast<int>(std::floor(120.5f / Chunk::HEIGHT));
-    auto spawn_cz = static_cast<int>(std::floor(32.0f / Chunk::DEPTH));
-
-    global.ecs->level = std::make_unique<Level>(
-        16, 4, 16, 
-        spawn_cx - 8, 
-        spawn_cy - 2, 
-        spawn_cz - 8
-    );
-    
+    global.ecs->level = std::make_unique<Level>(16, 4, 16, -8, -2, -8);
     renderer = std::make_unique<VoxelRenderer>(1024 * 1024);
     global.line_batch = std::make_unique<LineBatch>(4096);
-    physics_solver = std::make_unique<PhysicsSolver>(glm::vec3(0, -16.0f, 0));
     global.lighting = std::make_unique<Lighting>();
 
     global.crosshair = std::make_unique<Mesh>(vertices, attrs);
     camera = std::make_unique<Camera>(glm::vec3(32, 120.5f, 32), glm::radians(90.0f));
+    player = Player::create(glm::vec3(32, 122.0f, 32));
 
-    player = std::make_unique<Player>(Player::create(glm::vec3(32, 120.0f, 32)));
+    request_entity_spawn(glm::vec3(32.0f, 122.0f, 32.0f));
 
     IMGUI_CHECKVERSION();
     ImGui::CreateContext();
     ImGui::StyleColorsDark();
-
     ImGui_ImplGlfw_InitForOpenGL(global.window->get_handle(), true);
     ImGui_ImplOpenGL3_Init("#version 330");
 }
 
-void StateGame::tick() {
-    auto *wnd = global.window.get();
-    auto *mouse = wnd->get_mouse();
-    auto *keyboard = wnd->get_keyboard();
+void StateGame::process_network_packets() {
+    if (!server_conn || !server_conn->is_open()) return;
+
+    global.network->update();
+    auto packets = server_conn->poll_packets();
     
-    mouse->tick();
-    keyboard->tick();
-}
+    for (auto &packet : packets) {
+        packet.reset_read();
+        switch (packet.get_type()) {
+            case PacketType::EntitySpawn: {
+                auto spawned_id = packet.read<uint32_t>();
+                glm::vec3 initial_pos = packet.read_vec3(); 
 
-void StateGame::update() {
-    auto *wnd = global.window.get();
-    auto *keyboard = wnd->get_keyboard();
-    auto *mouse = wnd->get_mouse();
-    auto *level = global.ecs->level.get();
+                if (spawned_id >= global.ecs->size) {
+                    global.ecs->resize(spawned_id + 16);
+                }
 
-    if (keyboard->keys[GLFW_KEY_ESCAPE].pressed) {
-        wnd->set_should_close(true);
-    }
-    if (keyboard->keys[GLFW_KEY_TAB].pressed) {
-        wnd->set_grabbed(!global.window->grabbed);
-    }
+                if (!has_spawned) {
+                    local_player_id = spawned_id;
+                    has_spawned = true;
 
-    auto &player_hb = player->hitbox();
-    bool sprint = keyboard->keys[GLFW_KEY_LEFT_CONTROL].down;
-    bool shift = keyboard->keys[GLFW_KEY_LEFT_SHIFT].down && player_hb.grounded && !sprint;
-    bool is_swimming_up = keyboard->keys[GLFW_KEY_SPACE].down;
+                    player = Player(global.ecs.get(), static_cast<EntityId>(spawned_id));
+                    
+                    if (!player.has<TransformComponent>()) {
+                        player.add<TransformComponent>();
+                    }
+                    if (!player.has<HitboxComponent>()) {
+                        auto &hb = player.add<HitboxComponent>();
+                        hb.halfsize = glm::vec3(0.3f, 0.9f, 0.3f);
+                    }
+                    if (!player.has<PlayerInputComponent>()) {
+                        player.add<PlayerInputComponent>();
+                    }
 
-    player->set_shifting(shift);
-    player->set_swimming_up(is_swimming_up);
+                    if (player.has<RenderComponent>()) {
+                        player.remove<RenderComponent>();
+                    }
 
-    auto speed = static_cast<float>(player_speed);
-    glm::vec3 dir(0, 0, 0);
+                    target_position = initial_pos; 
+                    player.transform().position = target_position;
+                    player.hitbox().position = target_position + glm::vec3(0.0f, player.hitbox().halfsize.y, 0.0f);
+                } else if (spawned_id != local_player_id) {
+                    ECS::Object obj { global.ecs.get(), static_cast<EntityId>(spawned_id) };
 
-    if (keyboard->keys[GLFW_KEY_W].down) { dir.x += camera->dir.x; dir.z += camera->dir.z; }
-    if (keyboard->keys[GLFW_KEY_S].down) { dir.x -= camera->dir.x; dir.z -= camera->dir.z; }
-    if (keyboard->keys[GLFW_KEY_D].down) { dir.x += camera->right.x; dir.z += camera->right.z; }
-    if (keyboard->keys[GLFW_KEY_A].down) { dir.x -= camera->right.x; dir.z -= camera->right.z; }
+                    if (!obj.has<TransformComponent>()) {
+                        auto &trans = obj.add<TransformComponent>();
+                        trans.position = initial_pos;
+                        trans.rotation = glm::vec3(0.0f);
+                    }
 
-    auto delta_seconds = static_cast<float>(wnd->frame_delta) / 1'000'000'000.0f;
-    delta_seconds = std::min<float>(delta_seconds, 0.05f);
+                    if (!obj.has<RenderComponent>()) {
+                        auto &rc = obj.add<RenderComponent>(RenderComponent(player_model));
+                        rc.visible = true;
+                    }
+                }
+                break;
+            }
+            case PacketType::EntityStateUpdate: {
+                auto entity_id = packet.read<uint32_t>();
+                auto pos = packet.read_vec3();
+                auto vel = packet.read_vec3();
+                auto rot = packet.read_vec3();
 
-    unsigned int substeps = std::clamp(static_cast<unsigned int>(wnd->frame_delta * 1000.0f), 1u, 100u);
+                if (has_spawned && entity_id == local_player_id) {
+                    target_position = pos;
+                    player.hitbox().velocity = vel;
+                } else {
+                    if (entity_id >= global.ecs->size) {
+                        global.ecs->resize(entity_id + 16);
+                    }
 
-    physics_solver->step(delta_seconds, substeps);
+                    ECS::Object obj { global.ecs.get(), static_cast<EntityId>(entity_id) };
 
-    auto &player_pos = player->transform().position;
+                    if (!obj.has<TransformComponent>()) {
+                        obj.add<TransformComponent>();
+                    }
+                    if (!obj.has<RenderComponent>()) {
+                        auto &rc = obj.add<RenderComponent>(RenderComponent(player_model));
+                        rc.visible = true; 
+                    }
 
-    camera->position.x = player_pos.x;
-    camera->position.y = player_pos.y + 0.5f;
-    camera->position.z = player_pos.z;
+                    auto &trans = obj.get<TransformComponent>();
+                    trans.position = pos;
+                    trans.rotation = rot;
+                }
+                break;
+            }
+            case PacketType::BlockModify: {
+                auto x = packet.read<int32_t>();
+                auto y = packet.read<int32_t>();
+                auto z = packet.read<int32_t>();
+                auto block_id = packet.read<uint8_t>();
 
-    auto dt = std::min<float>(1.0f, wnd->frame_delta * 16);
-    if (shift) {
-        speed *= 0.25f;
-        camera->position.y -= 0.2f;
-        camera->zoom = 0.9f * dt + camera->zoom * (1.0f - dt);
-    } else if (sprint) {
-        speed *= 5.0f;
-        camera->zoom = 1.1f * dt + camera->zoom * (1.0f - dt);
-    } else {
-        camera->zoom = dt + camera->zoom * (1.0f - dt);
-    }
-
-    if (glm::length(dir) > 0.0f) {
-        dir = glm::normalize(dir);
-    }
-
-    player_hb.velocity.x = dir.x * speed;
-    player_hb.velocity.z = dir.z * speed;
-
-    if (keyboard->keys[GLFW_KEY_SPACE].down && player_hb.grounded) {
-        player->jump(6.0f);
-    }
-
-    auto p_chunk_x = static_cast<int>(std::floor(camera->position.x / Chunk::WIDTH));
-    auto p_chunk_y = static_cast<int>(std::floor(camera->position.y / Chunk::HEIGHT));
-    auto p_chunk_z = static_cast<int>(std::floor(camera->position.z / Chunk::DEPTH));
-
-    level->set_center(p_chunk_x, p_chunk_y, p_chunk_z);
-    level->load_visible(global.world_files.get());
-    level->decorate_visible();
-    level->build_meshes(renderer.get());
-
-    if (wnd->grabbed) {
-        cam_y += -mouse->delta.y / wnd->get_size().y * 2;
-        cam_x += -mouse->delta.x / wnd->get_size().x * 2;
-
-        cam_y = std::clamp(cam_y, -glm::radians(89.0f), glm::radians(89.0f));
-        camera->rotation = glm::mat4(1.0f);
-        camera->rotate(cam_y, cam_x, 0);
-    }
-
-    if (auto hit = level->raycast(camera->position, camera->front, 10.0f)) {
-        global.line_batch->box(
-            hit->voxel_pos.x + 0.5f, 
-            hit->voxel_pos.y + 0.5f, 
-            hit->voxel_pos.z + 0.5f,
-            1.005f, 1.005f, 1.005f, 
-            0.0f, 0.0f, 0.0f, 0.5f);
-
-        if (mouse->buttons[GLFW_MOUSE_BUTTON_1].pressed) {
-            level->set(hit->voxel_pos.x, hit->voxel_pos.y, hit->voxel_pos.z, 0);
-            global.lighting->on_block_set(hit->voxel_pos.x, hit->voxel_pos.y, hit->voxel_pos.z, 0);
-        }
-
-        if (mouse->buttons[GLFW_MOUSE_BUTTON_2].pressed) {
-            glm::ivec3 place_pos = hit->voxel_pos + hit->normal;
-            level->set(place_pos.x, place_pos.y, place_pos.z, choosen_block);
-            global.lighting->on_block_set(place_pos.x, place_pos.y, place_pos.z, choosen_block);
+                if (global.ecs->level) {
+                    global.ecs->level->set(x, y, z, block_id);
+                    if (global.lighting) {
+                        global.lighting->on_block_set(x, y, z, block_id);
+                    }
+                    int cx = static_cast<int>(std::floor(static_cast<float>(x) / Chunk::WIDTH));
+                    int cy = static_cast<int>(std::floor(static_cast<float>(y) / Chunk::HEIGHT));
+                    int cz = static_cast<int>(std::floor(static_cast<float>(z) / Chunk::DEPTH));
+                    
+                    auto* chunk = global.ecs->level->get_chunk(cx, cy, cz);
+                    if (chunk) chunk->modified = true;
+                }
+                break;
+            }
+            default:
+                break;
         }
     }
 }
 
 void StateGame::render() {
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-
+    
     global.shader->use();
     global.shader->uniform_matrix("u_projview", camera->get_projection() * camera->get_view());
     global.shader->uniform_1f("u_gamma", 2.2f);
     global.shader->uniform_3f("u_sky_light_color", 0.2f, 0.3f, 0.4f);
-    
+
     global.texture->bind();
     auto *level = global.ecs->level.get();
     for (std::size_t i = 0; i < level->volume; i++) {
@@ -309,26 +277,35 @@ void StateGame::render() {
         glm::mat4 model = glm::translate(glm::mat4(1.0f), glm::vec3(
             chunk->x * Chunk::WIDTH + 0.5f,
             chunk->y * Chunk::HEIGHT + 0.5f,
-            chunk->z * Chunk::DEPTH + 0.5f
-        ));
+            chunk->z * Chunk::DEPTH + 0.5f));
+        
         global.shader->uniform_matrix("u_model", model);
         mesh->draw(GL_TRIANGLES);
     }
 
-    if (test_model && global.ecs->has_component<TransformComponent>(test_model_entity)) {
-        const auto &transform = global.ecs->component<TransformComponent>(test_model_entity);
+    for (std::size_t i = 0; i < global.ecs->size; i++) {
+        auto current_id = static_cast<EntityId>(i);
+        if (current_id == local_player_id) continue;
 
-        float scale_factor = 0.1f; 
-        glm::vec3 center_offset = -test_model->tight_aabb.get_center();
+        ECS::Object obj { global.ecs.get(), current_id };
+        if (!obj.has<RenderComponent>() || !obj.has<TransformComponent>()) continue;
 
-        glm::mat4 model_matrix = glm::mat4(1.0f);
-        model_matrix = glm::translate(model_matrix, transform.position);
-        model_matrix = glm::rotate(model_matrix, transform.rotation.y, glm::vec3(0, 1, 0));
-        model_matrix = glm::scale(model_matrix, glm::vec3(scale_factor)); // <--- Apply scale here
-        model_matrix = glm::translate(model_matrix, center_offset);
+        auto &render_comp = obj.get<RenderComponent>();
+        auto &trans_comp = obj.get<TransformComponent>();
 
-        global.shader->uniform_matrix("u_model", model_matrix);
-        test_model->draw();
+        if (!render_comp.visible || !render_comp.model) continue;
+
+        glm::vec3 model_center = render_comp.model->tight_aabb.get_size() * 0.5f;
+        glm::mat4 model_mat = glm::translate(glm::mat4(1.0f), trans_comp.position);
+        
+        model_mat = glm::rotate(model_mat, trans_comp.rotation.y, glm::vec3(0.0f, 1.0f, 0.0f));
+        model_mat = glm::rotate(model_mat, trans_comp.rotation.x, glm::vec3(1.0f, 0.0f, 0.0f));
+        
+        model_mat = glm::scale(model_mat, glm::vec3(0.1f));
+        model_mat = glm::translate(model_mat, -model_center); 
+
+        global.shader->uniform_matrix("u_model", model_mat);
+        render_comp.model->draw();
     }
 
     global.crosshair_shader->use();
@@ -338,6 +315,95 @@ void StateGame::render() {
     global.lines_shader->uniform_matrix("u_projview", camera->get_projection() * camera->get_view());
     glLineWidth(2.0f);
     global.line_batch->render();
+}
+
+void StateGame::send_player_state() {
+    if (!server_conn || !server_conn->is_open() || !has_spawned) return;
+
+    auto *keyboard = global.window->get_keyboard();
+    bool is_grabbed = global.window->grabbed;
+
+    Packet packet(PacketType::PlayerState);
+    packet.write<bool>(is_grabbed && keyboard->keys[GLFW_KEY_W].down);
+    packet.write<bool>(is_grabbed && keyboard->keys[GLFW_KEY_S].down);
+    packet.write<bool>(is_grabbed && keyboard->keys[GLFW_KEY_A].down);
+    packet.write<bool>(is_grabbed && keyboard->keys[GLFW_KEY_D].down);
+    packet.write<bool>(is_grabbed && keyboard->keys[GLFW_KEY_SPACE].down);
+    packet.write<bool>(is_grabbed && keyboard->keys[GLFW_KEY_LEFT_CONTROL].down);
+    packet.write<bool>(is_grabbed && keyboard->keys[GLFW_KEY_LEFT_SHIFT].down);
+    packet.write<bool>(false);
+
+    packet.write<float>(cam_x);
+    packet.write<float>(cam_y);
+
+    server_conn->send_packet(packet);
+}
+
+void StateGame::tick() {
+    auto *wnd = global.window.get();
+    wnd->get_mouse()->tick();
+    wnd->get_keyboard()->tick();
+    
+    send_player_state();
+}
+
+void StateGame::update() {
+    process_network_packets();
+
+    auto *wnd = global.window.get();
+
+    auto dt = static_cast<float>(wnd->frame_delta) / 1'000'000'000.0f;
+    dt = std::min<float>(dt, 0.05f);
+
+    auto *keyboard = wnd->get_keyboard();
+    auto *mouse = wnd->get_mouse();
+    auto *level = global.ecs->level.get();
+
+    if (keyboard->keys[GLFW_KEY_ESCAPE].pressed) wnd->set_should_close(true);
+    if (keyboard->keys[GLFW_KEY_TAB].pressed) wnd->set_grabbed(!global.window->grabbed);
+
+    float lerp_factor = 20.0f * dt;
+    player.transform().position = glm::mix(player.transform().position, target_position, lerp_factor);
+
+    auto &player_pos = player.transform().position;
+    camera->position = player_pos + glm::vec3(0.0f, 1.6f, 0.0f);
+
+    level->set_center(
+        static_cast<int>(std::floor(camera->position.x / Chunk::WIDTH)),
+        static_cast<int>(std::floor(camera->position.y / Chunk::HEIGHT)),
+        static_cast<int>(std::floor(camera->position.z / Chunk::DEPTH)));
+
+    level->load_visible(global.world_files.get());
+    level->decorate_visible();
+    level->build_meshes(renderer.get());
+
+    if (wnd->grabbed) {
+        float sensitivity = 1.5f;
+        cam_x += (-mouse->delta.x / wnd->get_size().x) * sensitivity;
+        cam_y += (-mouse->delta.y / wnd->get_size().y) * sensitivity;
+        cam_y = glm::clamp(cam_y, -glm::half_pi<float>() + 0.1f, glm::half_pi<float>() - 0.1f);
+
+        camera->rotation = glm::mat4(1.0f);
+        camera->rotate(cam_y, cam_x, 0);
+
+        if (auto hit = level->raycast(camera->position, camera->front, 10.0f)) {
+            global.line_batch->box(
+                hit->voxel_pos.x + 0.5f, hit->voxel_pos.y + 0.5f, hit->voxel_pos.z + 0.5f,
+                1.005f, 1.005f, 1.005f, 0.0f, 0.0f, 0.0f, 0.5f);
+
+            if (mouse->buttons[GLFW_MOUSE_BUTTON_1].pressed || mouse->buttons[GLFW_MOUSE_BUTTON_2].pressed) {
+                glm::ivec3 target_pos = mouse->buttons[GLFW_MOUSE_BUTTON_1].pressed ? hit->voxel_pos : (hit->voxel_pos + hit->normal);
+                uint8_t target_block = mouse->buttons[GLFW_MOUSE_BUTTON_1].pressed ? 0 : static_cast<uint8_t>(choosen_block);
+
+                Packet packet(PacketType::BlockModify);
+                packet.write<int32_t>(target_pos.x);
+                packet.write<int32_t>(target_pos.y);
+                packet.write<int32_t>(target_pos.z);
+                packet.write<uint8_t>(target_block);
+                server_conn->send_packet(packet);
+            }
+        }
+    }
 }
 
 void StateGame::render_ui() {

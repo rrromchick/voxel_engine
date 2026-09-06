@@ -5,6 +5,10 @@ set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
+if(NOT CMAKE_BUILD_TYPE)
+    set(CMAKE_BUILD_TYPE Debug CACHE STRING "Choose the type of build." FORCE)
+endif()
+
 set(GLFW_BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
 set(GLFW_BUILD_TESTS OFF CACHE BOOL "" FORCE)
 set(GLFW_INSTALL OFF CACHE BOOL "" FORCE)
@@ -73,7 +77,18 @@ target_link_libraries(engine_core PUBLIC
 )
 
 if(MSVC)
-    target_compile_options(engine_core PRIVATE /Zc:__cplusplus /permissive-)
+    target_compile_options(engine_core PRIVATE /Zc:__cplusplus /permissive- /Zi /Oy-)
+    add_link_options(/DEBUG)
+else()
+    add_compile_options(
+        -gdwarf-4
+        -fno-omit-frame-pointer
+        -funwind-tables
+    )
+endif()
+
+if(CMAKE_CXX_COMPILER_ID MATCHES "Clang")
+    add_link_options(-Wl,--allow-multiple-definition)
 endif()
 
 add_executable(${PROJECT_NAME} src/main.cpp)
@@ -87,9 +102,3 @@ add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
     "${CMAKE_CURRENT_SOURCE_DIR}/res"
     "$<TARGET_FILE_DIR:${PROJECT_NAME}>/res"
 )
-
-if(CMAKE_CXX_COMPILER_ID MATCHES "Clang")
-    add_compile_options(-g -O0)
-    # Add allow-multiple-definition to ignore libstdc++ / typeinfo inline collisions
-    add_link_options(-Wl,-pdb= -Wl,--allow-multiple-definition)
-endif()

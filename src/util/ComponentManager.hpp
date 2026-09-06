@@ -1,5 +1,6 @@
 #pragma once
 
+#include "Level.hpp"
 #include <vector>
 #include <array>
 #include <memory>
@@ -13,8 +14,6 @@
 #include <algorithm>
 #include <new>
 #include <cassert>
-
-struct Level;
 
 enum class ComponentManagerType {
     ENTITY,
@@ -363,7 +362,6 @@ struct ComponentManager {
     virtual void on_component_create(uint64_t id, void *component, Object object) {}
     virtual void on_component_destroy(uint64_t id, void *component, Object object) {}
 
-private:
     void resize(std::size_t new_size) {
         for (std::size_t i = 0; i < n_components; i++) {
             components[i].resize(new_size);

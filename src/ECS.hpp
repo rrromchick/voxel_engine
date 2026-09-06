@@ -33,7 +33,17 @@ struct ECS : public ComponentManager<
                     break;
                 }
             }
+            if (empty) {
+                return static_cast<uint64_t>(i);
+            }
         }
+
+        if (size < 10000) {
+            uint64_t new_id = size;
+            resize(size + 1);
+            return new_id;
+        }
+
         return std::nullopt;
     }
 };

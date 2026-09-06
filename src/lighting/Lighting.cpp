@@ -17,14 +17,15 @@ Lighting::~Lighting() = default;
 
 void Lighting::clear() {
     auto *level = global.ecs->level.get();
+    if (!level) return;
+
     for (unsigned int y = 0; y < level->h; y++) {
         for (unsigned int z = 0; z < level->d; z++) {
             for (unsigned int x = 0; x < level->w; x++) {
                 auto *chunk = level->get_chunk(x, y, z);
-                auto *lightmap = chunk->lightmap.get();
-                if (!chunk || !lightmap) continue;
+                if (!chunk || !chunk->lightmap) continue;
                 for (int i = 0; i < Chunk::VOLUME; i++) {
-                    lightmap->map[i] = 0;
+                    chunk->lightmap->map[i] = 0;
                 }
             }
         }
@@ -32,23 +33,24 @@ void Lighting::clear() {
 }
 
 void Lighting::on_chunk_loaded(int cx, int cy, int cz) {
+    if (!global.ecs || !global.ecs->level) return;
+
     auto *chunk = global.ecs->level->get_chunk(cx, cy, cz);
     auto *chunk_upper = global.ecs->level->get_chunk(cx, cy + 1, cz);
     auto *chunk_lower = global.ecs->level->get_chunk(cx, cy - 1, cz);
     if (!chunk) return;
 
-    if (chunk_lower) {
+    if (chunk_lower && chunk_lower->lightmap) {
         for (int z = 0; z < Chunk::DEPTH; z++) {
             for (int x = 0; x < Chunk::WIDTH; x++) {
                 int gx = x + cx * Chunk::WIDTH;
-                int gy = cy * Chunk::HEIGHT;
                 int gz = z + cz * Chunk::DEPTH;
 
-                int light = chunk->lightmap->get_s(x, 0, z);
+                int light = chunk->lightmap ? chunk->lightmap->get_s(x, 0, z) : 0;
                 int ncy = cy - 1;
                 if (light < 15) {
                     auto *current = chunk_lower;
-                    if (chunk_lower->lightmap->get_s(x, 15, z) == 0) {
+                    if (current->lightmap && current->lightmap->get_s(x, 15, z) == 0) {
                         continue;
                     }
                     for (int y = 15;; y--) {
@@ -56,10 +58,10 @@ void Lighting::on_chunk_loaded(int cx, int cy, int cz) {
                             ncy--;
                             y += Chunk::HEIGHT;
                         }
-                        if (ncy != current->y) {
+                        if (!current || ncy != current->y) {
                             current = global.ecs->level->get_chunk(cx, ncy, cz);
                         }
-                        if (!current) {
+                        if (!current || !current->lightmap) {
                             break;
                         }
 
@@ -78,7 +80,7 @@ void Lighting::on_chunk_loaded(int cx, int cy, int cz) {
         }
     }
 
-    if (chunk_upper) {
+    if (chunk_upper && chunk_upper->lightmap) {
         for (int z = 0; z < Chunk::DEPTH; z++) {
             for (int x = 0; x < Chunk::WIDTH; x++) {
                 int gx = x + cx * Chunk::WIDTH;
@@ -95,10 +97,10 @@ void Lighting::on_chunk_loaded(int cx, int cy, int cz) {
                             ncy--;
                             y += Chunk::HEIGHT;
                         }
-                        if (ncy != current->y) {
+                        if (!current || ncy != current->y) {
                             current = global.ecs->level->get_chunk(cx, ncy, cz);
                         }
-                        if (!current) {
+                        if (!current || !current->lightmap) {
                             break;
                         }
 
@@ -129,10 +131,10 @@ void Lighting::on_chunk_loaded(int cx, int cy, int cz) {
                         ncy--;
                         y += Chunk::HEIGHT;
                     }
-                    if (ncy != current->y) {
+                    if (!current || ncy != current->y) {
                         current = global.ecs->level->get_chunk(cx, ncy, cz);
                     }
-                    if (!current) {
+                    if (!current || !current->lightmap) {
                         break;
                     }
                     
@@ -154,7 +156,7 @@ void Lighting::on_chunk_loaded(int cx, int cy, int cz) {
             for (unsigned int x = 0; x < Chunk::WIDTH; x++) {
                 auto vox = chunk->voxels[(y * Chunk::DEPTH + z) * Chunk::WIDTH + x];
                 auto *block = global.blocks[vox.id].get();
-                if (block->emission[0] || block->emission[1] || block->emission[2]) {
+                if (block && (block->emission[0] || block->emission[1] || block->emission[2])) {
                     int gx = x + cx * Chunk::WIDTH;
                     int gy = y + cy * Chunk::HEIGHT;
                     int gz = z + cz * Chunk::DEPTH;
@@ -196,18 +198,17 @@ void Lighting::on_chunk_loaded(int cx, int cy, int cz) {
         { 0, 0, -1 }, { 0, 0, 1 }
     }};
 
-    Chunk *other;
-
     for (const auto &dir : directions) {
-        other = global.ecs->level->get_chunk(cx + dir[0], cy + dir[1], cz + dir[2]);
+        auto *other = global.ecs->level->get_chunk(cx + dir[0], cy + dir[1], cz + dir[2]);
         if (other) other->modified = true;
     }
 }
 
 void Lighting::on_block_set(int x, int y, int z, int id) {
+    if (!global.ecs || !global.ecs->level) return;
     auto *level = global.ecs->level.get();
 
-    if (id == 0) {
+    if (id == 0) { // Air block placed (Block destroyed)
         solver_r->remove(x, y, z);
         solver_g->remove(x, y, z);
         solver_b->remove(x, y, z);
@@ -218,7 +219,8 @@ void Lighting::on_block_set(int x, int y, int z, int id) {
 
         if (level->get_light(x, y + 1, z, 3) == 0xF) {
             for (int i = y; i >= 0; i--) {
-                if (level->get_voxel(x, i, z)->id != 0) {
+                auto *vox = level->get_voxel(x, i, z);
+                if (!vox || vox->id != 0) {
                     break;
                 }
                 solver_s->add(x, i, z, 0xF);
@@ -241,14 +243,16 @@ void Lighting::on_block_set(int x, int y, int z, int id) {
         solver_g->solve();
         solver_b->solve();
         solver_s->solve();
-    } else {
+    } else { // Solid block placed
         solver_r->remove(x, y, z);
         solver_g->remove(x, y, z);
         solver_b->remove(x, y, z);
         solver_s->remove(x, y, z);
+
         for (int i = y - 1; i >= 0; i--) {
             solver_s->remove(x, i, z);
-            if (i == 0 || level->get_voxel(x, i - 1, z)->id != 0) {
+            auto *below_vox = level->get_voxel(x, i - 1, z);
+            if (i == 0 || !below_vox || below_vox->id != 0) {
                 break;
             }
         }
@@ -258,15 +262,17 @@ void Lighting::on_block_set(int x, int y, int z, int id) {
         solver_b->solve();
         solver_s->solve();
 
-        auto *block = global.blocks[id].get();
-        if (block->emission[0] || block->emission[1] || block->emission[2]) {
-            solver_r->add(x, y, z, block->emission[0]);
-            solver_g->add(x, y, z, block->emission[1]);
-            solver_b->add(x, y, z, block->emission[2]);
-            
-            solver_r->solve();
-            solver_g->solve();
-            solver_b->solve();
+        if (id > 0 && static_cast<std::size_t>(id) < global.blocks.size() && global.blocks[id]) {
+            auto *block = global.blocks[id].get();
+            if (block->emission[0] || block->emission[1] || block->emission[2]) {
+                solver_r->add(x, y, z, block->emission[0]);
+                solver_g->add(x, y, z, block->emission[1]);
+                solver_b->add(x, y, z, block->emission[2]);
+                
+                solver_r->solve();
+                solver_g->solve();
+                solver_b->solve();
+            }
         }
     }
 }

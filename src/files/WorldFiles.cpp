@@ -186,7 +186,7 @@ unsigned int WorldFiles::write_region(
                 std::span<const uint8_t>(chunk_ptr.get(), Chunk::VOLUME), compressed));
 
             if (offset + 4 + compressed_size > out.size()) {
-                return 0; // Buffer capacity safety check
+                return 0;
             }
 
             uint32_to_bytes(offset, out.subspan(i * 4, 4));
