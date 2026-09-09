@@ -208,7 +208,7 @@ void Lighting::on_block_set(int x, int y, int z, int id) {
     if (!global.ecs || !global.ecs->level) return;
     auto *level = global.ecs->level.get();
 
-    if (id == 0) { // Air block placed (Block destroyed)
+    if (id == 0) {
         solver_r->remove(x, y, z);
         solver_g->remove(x, y, z);
         solver_b->remove(x, y, z);

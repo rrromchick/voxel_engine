@@ -76,8 +76,14 @@ struct ComponentManager {
         Object(T *p, I id) : id(id), p(p) {}
 
         inline operator I() const { return id; }
-        inline bool operator==(const Object &rhs) const { return id == rhs.id; }
-        inline auto operator<=>(const Object &rhs) const { return id <=> rhs.id; }
+
+        inline bool operator==(const Object &rhs) const { 
+            return id == rhs.id; 
+        }
+ 
+        inline auto operator<=>(const Object &rhs) const { 
+            return id <=> rhs.id; 
+        }
 
         inline T &parent() const { return *p; }
 
@@ -131,9 +137,13 @@ struct ComponentManager {
 
         inline std::string to_string() const {
             std::string prefix;
-            if constexpr (Type == ComponentManagerType::ENTITY) prefix = "Entity";
-            else if constexpr (Type == ComponentManagerType::ITEM) prefix = "Item";
-            else if constexpr (Type == ComponentManagerType::TILE) prefix = "Tile";
+            if constexpr (Type == ComponentManagerType::ENTITY) {
+                prefix = "Entity";
+            } else if constexpr (Type == ComponentManagerType::ITEM) {
+                prefix = "Item";
+            } else if constexpr (Type == ComponentManagerType::TILE) {
+                prefix = "Tile";
+            }
             return prefix + "(" + std::to_string(id) + ")";
         }
     };
@@ -154,19 +164,27 @@ struct ComponentManager {
 
         template <typename _ = T>
             requires (Type == ComponentManagerType::ENTITY)
-        inline Object entity() const { return object(); }
+        inline Object entity() const { 
+            return object(); 
+        }
 
         template <typename _ = T>
             requires (Type == ComponentManagerType::ENTITY)
-        inline auto &level() const { return *parent().level; }
+        inline auto &level() const { 
+            return *parent().level; 
+        }
 
         template <typename _ = T>
             requires (Type == ComponentManagerType::TILE) 
-        inline Object tile() const { return object(); }
+        inline Object tile() const { 
+            return object(); 
+        }
 
         template <typename _ = T>
             requires (Type == ComponentManagerType::ITEM)
-        inline Object item() const { return object(); }
+        inline Object item() const { 
+            return object(); 
+        }
     };
 
     struct ComponentArray {
@@ -175,6 +193,7 @@ struct ComponentManager {
 
         struct AlignedDeleter {
             std::size_t align = 16;
+
             void operator()(uint8_t* ptr) const noexcept {
                 ::operator delete[](ptr, std::align_val_t(align));
             }
@@ -196,8 +215,7 @@ struct ComponentManager {
                 const auto alignment = parent->type->alignment;
 
                 auto* raw_ptr = static_cast<uint8_t*>(
-                    ::operator new[](data_size, std::align_val_t(alignment))
-                );
+                    ::operator new[](data_size, std::align_val_t(alignment)));
 
                 data = std::unique_ptr<uint8_t[], AlignedDeleter>(raw_ptr, AlignedDeleter{ alignment });
             }

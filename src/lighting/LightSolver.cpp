@@ -115,7 +115,7 @@ void LightSolver::solve() {
             auto *chunk = level->get_chunk_by_voxel(x, y, z);
             if (chunk && chunk->lightmap) {
                 auto *v = level->get_voxel(x, y, z);
-                if (!v) continue; // Prevent null dereference
+                if (!v) continue;
 
                 if (v->id >= global.blocks.size() || !global.blocks[v->id]) continue;
                 auto *block = global.blocks[v->id].get();
