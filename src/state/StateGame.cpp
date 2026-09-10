@@ -295,14 +295,20 @@ void StateGame::render() {
 
         if (!render_comp.visible || !render_comp.model) continue;
 
-        glm::vec3 model_center = render_comp.model->tight_aabb.get_size() * 0.5f;
+        glm::vec3 aabb_size = render_comp.model->tight_aabb.get_size();
+        float scale_factor = 1.8f / std::max(aabb_size.y, 0.001f);
+
+        glm::vec3 feet_pivot = glm::vec3(
+            render_comp.model->tight_aabb.min_bounds.x + aabb_size.x * 0.5f,
+            render_comp.model->tight_aabb.min_bounds.y, 
+            render_comp.model->tight_aabb.min_bounds.z + aabb_size.z * 0.5f
+        );
+
         glm::mat4 model_mat = glm::translate(glm::mat4(1.0f), trans_comp.position);
-        
+
         model_mat = glm::rotate(model_mat, trans_comp.rotation.y, glm::vec3(0.0f, 1.0f, 0.0f));
-        model_mat = glm::rotate(model_mat, trans_comp.rotation.x, glm::vec3(1.0f, 0.0f, 0.0f));
-        
-        model_mat = glm::scale(model_mat, glm::vec3(0.1f));
-        model_mat = glm::translate(model_mat, -model_center); 
+        model_mat = glm::scale(model_mat, glm::vec3(scale_factor));
+        model_mat = glm::translate(model_mat, -feet_pivot); 
 
         global.shader->uniform_matrix("u_model", model_mat);
         render_comp.model->draw();
@@ -317,22 +323,32 @@ void StateGame::render() {
     global.line_batch->render();
 }
 
+
 void StateGame::send_player_state() {
     if (!server_conn || !server_conn->is_open() || !has_spawned) return;
 
     auto *keyboard = global.window->get_keyboard();
     bool is_grabbed = global.window->grabbed;
 
+    auto &pos = player.transform().position;
+    uint8_t current_block = global.ecs->level ? global.ecs->level->get_voxel_id(
+        static_cast<int>(std::floor(pos.x)),
+        static_cast<int>(std::floor(pos.y)),
+        static_cast<int>(std::floor(pos.z))) : 0;
+    
+    bool in_fluid = (current_block == BlockId::WATER || current_block == BlockId::LAVA);
+    bool space_down = is_grabbed && keyboard->keys[GLFW_KEY_SPACE].down;
+
     Packet packet(PacketType::PlayerState);
     packet.write<bool>(is_grabbed && keyboard->keys[GLFW_KEY_W].down);
     packet.write<bool>(is_grabbed && keyboard->keys[GLFW_KEY_S].down);
     packet.write<bool>(is_grabbed && keyboard->keys[GLFW_KEY_A].down);
     packet.write<bool>(is_grabbed && keyboard->keys[GLFW_KEY_D].down);
-    packet.write<bool>(is_grabbed && keyboard->keys[GLFW_KEY_SPACE].down);
+    packet.write<bool>(space_down);
     packet.write<bool>(is_grabbed && keyboard->keys[GLFW_KEY_LEFT_CONTROL].down);
     packet.write<bool>(is_grabbed && keyboard->keys[GLFW_KEY_LEFT_SHIFT].down);
-    packet.write<bool>(false);
 
+    packet.write<bool>(in_fluid && space_down);
     packet.write<float>(cam_x);
     packet.write<float>(cam_y);
 
