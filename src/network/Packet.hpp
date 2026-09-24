@@ -14,7 +14,8 @@ enum class PacketType : uint8_t {
     BlockModify = 2,
     EntitySpawn = 3,
     EntityDestroy = 4,
-    EntityStateUpdate = 5
+    EntityStateUpdate = 5,
+    EntityDespawn = 6,
 };
 
 struct Packet {

@@ -20,6 +20,10 @@ struct ECS : public ComponentManager<
 > {    
     std::unique_ptr<Level> level;
 
+    void destroy(EntityId id) {
+        ComponentManager::destroy(Object { this, id });
+    }
+
     bool full() const override {
         return size >= 10000;
     }

@@ -14,7 +14,7 @@
 #ifdef _WIN32
     #include <winsock2.h>
     #include <ws2tcpip.h>
-    
+
     using socket_t = SOCKET;
     constexpr socket_t INVALID_SOCK = INVALID_SOCKET;
     #define CLOSE_SOCK(s) closesocket(s)
@@ -50,8 +50,13 @@ struct Connection {
     virtual int send_packet(const Packet &packet) = 0;
     virtual std::vector<Packet> poll_packets() = 0;
 
-    void set_user_data(void *data) { user_data = data; }
-    void *get_user_data() const { return user_data; }
+    void set_user_data(void *data) { 
+        user_data = data;
+    }
+
+    void *get_user_data() const {
+        return user_data;
+    }
 
 private:
     void *user_data = nullptr;
@@ -123,7 +128,7 @@ struct TcpConnection : public Connection {
         std::vector<char> send_buf(sizeof(uint16_t) + packet.size());
         std::memcpy(send_buf.data(), &payload_size, sizeof(uint16_t));
         std::memcpy(send_buf.data() + sizeof(uint16_t), packet.data(), packet.size());
-
+        
         return send(send_buf.data(), send_buf.size());
     }
 
@@ -194,7 +199,7 @@ struct TcpServer : public Server {
         if (::listen(listen_sock, SOMAXCONN) < 0) {
             return false;
         }
-
+        
         return true;
     }
 
@@ -211,7 +216,7 @@ struct TcpServer : public Server {
 
         clients.erase(
             std::remove_if(clients.begin(), clients.end(),
-                [](const std::shared_ptr<TcpConnection> &conn) { 
+                [](const std::shared_ptr<TcpConnection> &conn) {
                     return !conn->is_open();
                 }), clients.end());
     }
@@ -256,13 +261,13 @@ struct UdpConnection : public Connection {
 
     int recv(char *buffer, size_t length) override {
         return -1;
-    } 
+    }
 
     void close() override {
         open_state = false;
     }
 
-    bool is_open() const override { 
+    bool is_open() const override {
         return open_state;
     }
 
@@ -294,7 +299,7 @@ private:
 struct UdpServer : public Server {
     explicit UdpServer(int port) : port(port) {}
 
-    ~UdpServer() override { 
+    ~UdpServer() override {
         stop();
     }
 
@@ -322,7 +327,7 @@ struct UdpServer : public Server {
 
     void update() override {
         if (sock == INVALID_SOCK) return;
-
+        
         char temp_buf[1472];
         sockaddr_in client_addr {};
         socklen_t addr_len = sizeof(client_addr);
@@ -330,7 +335,7 @@ struct UdpServer : public Server {
         while (true) {
             int bytes = ::recvfrom(sock, temp_buf, sizeof(temp_buf), 0,
                 reinterpret_cast<sockaddr*>(&client_addr), &addr_len);
-
+            
             if (bytes > 0) {
                 auto client = find_or_create_client(client_addr);
                 Packet pckt;
@@ -356,7 +361,7 @@ struct UdpServer : public Server {
         }
     }
 
-    int get_port() const override { 
+    int get_port() const override {
         return port;
     }
 
@@ -367,7 +372,7 @@ struct UdpServer : public Server {
     std::vector<std::shared_ptr<Connection>> get_clients() const override {
         return { active_peers.begin(), active_peers.end() };
     }
-    
+
 private:
     std::shared_ptr<UdpConnection> find_or_create_client(const sockaddr_in &addr) {
         for (auto &conn : active_peers) {

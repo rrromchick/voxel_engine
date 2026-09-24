@@ -14,7 +14,9 @@ Player Player::create(const glm::vec3 &spawn_pos) {
     auto &trans = player.add<TransformComponent>();
     trans.position = spawn_pos;
 
-    player.add<HitboxComponent>();
+    auto &hb = player.add<HitboxComponent>();
+    hb.position = spawn_pos + glm::vec3(0.0f, hb.halfsize.y, 0.0f);
+
     player.add<PlayerInputComponent>();
 
     return player;

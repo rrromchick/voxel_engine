@@ -5,6 +5,7 @@
 #include "StateGame.hpp"
 #include <chrono>
 #include <iostream>
+#include <algorithm>
 
 Global global;
 
@@ -89,12 +90,12 @@ int main(int argc, char *argv[]) {
 
         constexpr uint64_t NANOS_PER_TICK = (Time::NANOS_PER_SECOND / 60);
         uint64_t tick_time = wnd->frame_delta + wnd->tick_remainder;
-        while (tick_time > NANOS_PER_TICK) {
+        while (tick_time >= NANOS_PER_TICK) {
             wnd->ticks++;
             game->tick();
             tick_time -= NANOS_PER_TICK;
         }
-        wnd->tick_remainder = std::max<uint64_t>(tick_time, 0ULL);
+        wnd->tick_remainder = tick_time;
 
         if (global.network) {
             global.network->update();

@@ -264,4 +264,14 @@ void PhysicsSolver::step_entity(
     }
 
     hitbox.position = pos + glm::vec3(0.0f, half.y, 0.0f);
+
+    int px = static_cast<int>(std::floor(pos.x));
+    int py = static_cast<int>(std::floor(pos.y));
+    int pz = static_cast<int>(std::floor(pos.z));
+
+    if (!level->get_chunk_by_voxel(px, py - 1, pz)) {
+        // Ground chunk under player isn't loaded yet; stall velocity
+        hitbox.velocity = glm::vec3(0.0f);
+        return;
+    }
 }

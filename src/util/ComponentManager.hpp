@@ -75,6 +75,10 @@ struct ComponentManager {
         Object() = default;
         Object(T *p, I id) : id(id), p(p) {}
 
+        inline bool is_valid() const {
+            return p != nullptr && static_cast<std::size_t>(id) < p->size;
+        }
+
         inline operator I() const { return id; }
 
         inline bool operator==(const Object &rhs) const { 

@@ -1,0 +1,278 @@
+[
+{
+  "directory": "D:/voxel_engine/out/build/mingw-x64-release",
+  "command": "C:\\LLVM\\bin\\clang.exe --target=x86_64-w64-mingw32 -ID:/voxel_engine/external/glad/include -fuse-ld=lld -O3 -DNDEBUG -o CMakeFiles\\glad.dir\\external\\glad\\src\\glad.c.obj -c D:\\voxel_engine\\external\\glad\\src\\glad.c",
+  "file": "D:/voxel_engine/external/glad/src/glad.c",
+  "output": "D:/voxel_engine/out/build/mingw-x64-release/CMakeFiles/glad.dir/external/glad/src/glad.c.obj"
+},
+{
+  "directory": "D:/voxel_engine/out/build/mingw-x64-release",
+  "command": "C:\\LLVM\\bin\\clang++.exe --target=x86_64-w64-mingw32 -ID:/voxel_engine/external/imgui -ID:/voxel_engine/external/imgui/backends -ID:/voxel_engine/external/glfw/include -ID:/voxel_engine/external/glad/include -fuse-ld=lld -O3 -DNDEBUG -std=c++23 -o CMakeFiles\\imgui.dir\\external\\imgui\\imgui.cpp.obj -c D:\\voxel_engine\\external\\imgui\\imgui.cpp",
+  "file": "D:/voxel_engine/external/imgui/imgui.cpp",
+  "output": "D:/voxel_engine/out/build/mingw-x64-release/CMakeFiles/imgui.dir/external/imgui/imgui.cpp.obj"
+},
+{
+  "directory": "D:/voxel_engine/out/build/mingw-x64-release",
+  "command": "C:\\LLVM\\bin\\clang++.exe --target=x86_64-w64-mingw32 -ID:/voxel_engine/external/imgui -ID:/voxel_engine/external/imgui/backends -ID:/voxel_engine/external/glfw/include -ID:/voxel_engine/external/glad/include -fuse-ld=lld -O3 -DNDEBUG -std=c++23 -o CMakeFiles\\imgui.dir\\external\\imgui\\imgui_draw.cpp.obj -c D:\\voxel_engine\\external\\imgui\\imgui_draw.cpp",
+  "file": "D:/voxel_engine/external/imgui/imgui_draw.cpp",
+  "output": "D:/voxel_engine/out/build/mingw-x64-release/CMakeFiles/imgui.dir/external/imgui/imgui_draw.cpp.obj"
+},
+{
+  "directory": "D:/voxel_engine/out/build/mingw-x64-release",
+  "command": "C:\\LLVM\\bin\\clang++.exe --target=x86_64-w64-mingw32 -ID:/voxel_engine/external/imgui -ID:/voxel_engine/external/imgui/backends -ID:/voxel_engine/external/glfw/include -ID:/voxel_engine/external/glad/include -fuse-ld=lld -O3 -DNDEBUG -std=c++23 -o CMakeFiles\\imgui.dir\\external\\imgui\\imgui_tables.cpp.obj -c D:\\voxel_engine\\external\\imgui\\imgui_tables.cpp",
+  "file": "D:/voxel_engine/external/imgui/imgui_tables.cpp",
+  "output": "D:/voxel_engine/out/build/mingw-x64-release/CMakeFiles/imgui.dir/external/imgui/imgui_tables.cpp.obj"
+},
+{
+  "directory": "D:/voxel_engine/out/build/mingw-x64-release",
+  "command": "C:\\LLVM\\bin\\clang++.exe --target=x86_64-w64-mingw32 -ID:/voxel_engine/external/imgui -ID:/voxel_engine/external/imgui/backends -ID:/voxel_engine/external/glfw/include -ID:/voxel_engine/external/glad/include -fuse-ld=lld -O3 -DNDEBUG -std=c++23 -o CMakeFiles\\imgui.dir\\external\\imgui\\imgui_widgets.cpp.obj -c D:\\voxel_engine\\external\\imgui\\imgui_widgets.cpp",
+  "file": "D:/voxel_engine/external/imgui/imgui_widgets.cpp",
+  "output": "D:/voxel_engine/out/build/mingw-x64-release/CMakeFiles/imgui.dir/external/imgui/imgui_widgets.cpp.obj"
+},
+{
+  "directory": "D:/voxel_engine/out/build/mingw-x64-release",
+  "command": "C:\\LLVM\\bin\\clang++.exe --target=x86_64-w64-mingw32 -ID:/voxel_engine/external/imgui -ID:/voxel_engine/external/imgui/backends -ID:/voxel_engine/external/glfw/include -ID:/voxel_engine/external/glad/include -fuse-ld=lld -O3 -DNDEBUG -std=c++23 -o CMakeFiles\\imgui.dir\\external\\imgui\\backends\\imgui_impl_glfw.cpp.obj -c D:\\voxel_engine\\external\\imgui\\backends\\imgui_impl_glfw.cpp",
+  "file": "D:/voxel_engine/external/imgui/backends/imgui_impl_glfw.cpp",
+  "output": "D:/voxel_engine/out/build/mingw-x64-release/CMakeFiles/imgui.dir/external/imgui/backends/imgui_impl_glfw.cpp.obj"
+},
+{
+  "directory": "D:/voxel_engine/out/build/mingw-x64-release",
+  "command": "C:\\LLVM\\bin\\clang++.exe --target=x86_64-w64-mingw32 -ID:/voxel_engine/external/imgui -ID:/voxel_engine/external/imgui/backends -ID:/voxel_engine/external/glfw/include -ID:/voxel_engine/external/glad/include -fuse-ld=lld -O3 -DNDEBUG -std=c++23 -o CMakeFiles\\imgui.dir\\external\\imgui\\backends\\imgui_impl_opengl3.cpp.obj -c D:\\voxel_engine\\external\\imgui\\backends\\imgui_impl_opengl3.cpp",
+  "file": "D:/voxel_engine/external/imgui/backends/imgui_impl_opengl3.cpp",
+  "output": "D:/voxel_engine/out/build/mingw-x64-release/CMakeFiles/imgui.dir/external/imgui/backends/imgui_impl_opengl3.cpp.obj"
+},
+{
+  "directory": "D:/voxel_engine/out/build/mingw-x64-release",
+  "command": "C:\\LLVM\\bin\\clang++.exe --target=x86_64-w64-mingw32 -ID:/voxel_engine/src -ID:/voxel_engine/src/gfx -ID:/voxel_engine/src/lighting -ID:/voxel_engine/src/util -ID:/voxel_engine/src/voxels -ID:/voxel_engine/src/window -ID:/voxel_engine/src/files -ID:/voxel_engine/src/physics -ID:/voxel_engine/src/state -ID:/voxel_engine/src/network -ID:/voxel_engine/external -ID:/voxel_engine/external/glm/glm -ID:/voxel_engine/external/glfw/include -ID:/voxel_engine/external/glad/include -ID:/voxel_engine/external/glm -ID:/voxel_engine/external/imgui -ID:/voxel_engine/external/imgui/backends -fuse-ld=lld -O3 -DNDEBUG -std=c++23 -o CMakeFiles\\engine_core.dir\\src\\gfx\\Texture.cpp.obj -c D:\\voxel_engine\\src\\gfx\\Texture.cpp",
+  "file": "D:/voxel_engine/src/gfx/Texture.cpp",
+  "output": "D:/voxel_engine/out/build/mingw-x64-release/CMakeFiles/engine_core.dir/src/gfx/Texture.cpp.obj"
+},
+{
+  "directory": "D:/voxel_engine/out/build/mingw-x64-release",
+  "command": "C:\\LLVM\\bin\\clang++.exe --target=x86_64-w64-mingw32 -ID:/voxel_engine/src -ID:/voxel_engine/src/gfx -ID:/voxel_engine/src/lighting -ID:/voxel_engine/src/util -ID:/voxel_engine/src/voxels -ID:/voxel_engine/src/window -ID:/voxel_engine/src/files -ID:/voxel_engine/src/physics -ID:/voxel_engine/src/state -ID:/voxel_engine/src/network -ID:/voxel_engine/external -ID:/voxel_engine/external/glm/glm -ID:/voxel_engine/external/glfw/include -ID:/voxel_engine/external/glad/include -ID:/voxel_engine/external/glm -ID:/voxel_engine/external/imgui -ID:/voxel_engine/external/imgui/backends -fuse-ld=lld -O3 -DNDEBUG -std=c++23 -o CMakeFiles\\engine_core.dir\\src\\gfx\\Mesh.cpp.obj -c D:\\voxel_engine\\src\\gfx\\Mesh.cpp",
+  "file": "D:/voxel_engine/src/gfx/Mesh.cpp",
+  "output": "D:/voxel_engine/out/build/mingw-x64-release/CMakeFiles/engine_core.dir/src/gfx/Mesh.cpp.obj"
+},
+{
+  "directory": "D:/voxel_engine/out/build/mingw-x64-release",
+  "command": "C:\\LLVM\\bin\\clang++.exe --target=x86_64-w64-mingw32 -ID:/voxel_engine/src -ID:/voxel_engine/src/gfx -ID:/voxel_engine/src/lighting -ID:/voxel_engine/src/util -ID:/voxel_engine/src/voxels -ID:/voxel_engine/src/window -ID:/voxel_engine/src/files -ID:/voxel_engine/src/physics -ID:/voxel_engine/src/state -ID:/voxel_engine/src/network -ID:/voxel_engine/external -ID:/voxel_engine/external/glm/glm -ID:/voxel_engine/external/glfw/include -ID:/voxel_engine/external/glad/include -ID:/voxel_engine/external/glm -ID:/voxel_engine/external/imgui -ID:/voxel_engine/external/imgui/backends -fuse-ld=lld -O3 -DNDEBUG -std=c++23 -o CMakeFiles\\engine_core.dir\\src\\gfx\\VoxelRenderer.cpp.obj -c D:\\voxel_engine\\src\\gfx\\VoxelRenderer.cpp",
+  "file": "D:/voxel_engine/src/gfx/VoxelRenderer.cpp",
+  "output": "D:/voxel_engine/out/build/mingw-x64-release/CMakeFiles/engine_core.dir/src/gfx/VoxelRenderer.cpp.obj"
+},
+{
+  "directory": "D:/voxel_engine/out/build/mingw-x64-release",
+  "command": "C:\\LLVM\\bin\\clang++.exe --target=x86_64-w64-mingw32 -ID:/voxel_engine/src -ID:/voxel_engine/src/gfx -ID:/voxel_engine/src/lighting -ID:/voxel_engine/src/util -ID:/voxel_engine/src/voxels -ID:/voxel_engine/src/window -ID:/voxel_engine/src/files -ID:/voxel_engine/src/physics -ID:/voxel_engine/src/state -ID:/voxel_engine/src/network -ID:/voxel_engine/external -ID:/voxel_engine/external/glm/glm -ID:/voxel_engine/external/glfw/include -ID:/voxel_engine/external/glad/include -ID:/voxel_engine/external/glm -ID:/voxel_engine/external/imgui -ID:/voxel_engine/external/imgui/backends -fuse-ld=lld -O3 -DNDEBUG -std=c++23 -o CMakeFiles\\engine_core.dir\\src\\gfx\\LineBatch.cpp.obj -c D:\\voxel_engine\\src\\gfx\\LineBatch.cpp",
+  "file": "D:/voxel_engine/src/gfx/LineBatch.cpp",
+  "output": "D:/voxel_engine/out/build/mingw-x64-release/CMakeFiles/engine_core.dir/src/gfx/LineBatch.cpp.obj"
+},
+{
+  "directory": "D:/voxel_engine/out/build/mingw-x64-release",
+  "command": "C:\\LLVM\\bin\\clang++.exe --target=x86_64-w64-mingw32 -ID:/voxel_engine/src -ID:/voxel_engine/src/gfx -ID:/voxel_engine/src/lighting -ID:/voxel_engine/src/util -ID:/voxel_engine/src/voxels -ID:/voxel_engine/src/window -ID:/voxel_engine/src/files -ID:/voxel_engine/src/physics -ID:/voxel_engine/src/state -ID:/voxel_engine/src/network -ID:/voxel_engine/external -ID:/voxel_engine/external/glm/glm -ID:/voxel_engine/external/glfw/include -ID:/voxel_engine/external/glad/include -ID:/voxel_engine/external/glm -ID:/voxel_engine/external/imgui -ID:/voxel_engine/external/imgui/backends -fuse-ld=lld -O3 -DNDEBUG -std=c++23 -o CMakeFiles\\engine_core.dir\\src\\voxels\\Chunk.cpp.obj -c D:\\voxel_engine\\src\\voxels\\Chunk.cpp",
+  "file": "D:/voxel_engine/src/voxels/Chunk.cpp",
+  "output": "D:/voxel_engine/out/build/mingw-x64-release/CMakeFiles/engine_core.dir/src/voxels/Chunk.cpp.obj"
+},
+{
+  "directory": "D:/voxel_engine/out/build/mingw-x64-release",
+  "command": "C:\\LLVM\\bin\\clang++.exe --target=x86_64-w64-mingw32 -ID:/voxel_engine/src -ID:/voxel_engine/src/gfx -ID:/voxel_engine/src/lighting -ID:/voxel_engine/src/util -ID:/voxel_engine/src/voxels -ID:/voxel_engine/src/window -ID:/voxel_engine/src/files -ID:/voxel_engine/src/physics -ID:/voxel_engine/src/state -ID:/voxel_engine/src/network -ID:/voxel_engine/external -ID:/voxel_engine/external/glm/glm -ID:/voxel_engine/external/glfw/include -ID:/voxel_engine/external/glad/include -ID:/voxel_engine/external/glm -ID:/voxel_engine/external/imgui -ID:/voxel_engine/external/imgui/backends -fuse-ld=lld -O3 -DNDEBUG -std=c++23 -o CMakeFiles\\engine_core.dir\\src\\voxels\\WorldGenerator.cpp.obj -c D:\\voxel_engine\\src\\voxels\\WorldGenerator.cpp",
+  "file": "D:/voxel_engine/src/voxels/WorldGenerator.cpp",
+  "output": "D:/voxel_engine/out/build/mingw-x64-release/CMakeFiles/engine_core.dir/src/voxels/WorldGenerator.cpp.obj"
+},
+{
+  "directory": "D:/voxel_engine/out/build/mingw-x64-release",
+  "command": "C:\\LLVM\\bin\\clang++.exe --target=x86_64-w64-mingw32 -ID:/voxel_engine/src -ID:/voxel_engine/src/gfx -ID:/voxel_engine/src/lighting -ID:/voxel_engine/src/util -ID:/voxel_engine/src/voxels -ID:/voxel_engine/src/window -ID:/voxel_engine/src/files -ID:/voxel_engine/src/physics -ID:/voxel_engine/src/state -ID:/voxel_engine/src/network -ID:/voxel_engine/external -ID:/voxel_engine/external/glm/glm -ID:/voxel_engine/external/glfw/include -ID:/voxel_engine/external/glad/include -ID:/voxel_engine/external/glm -ID:/voxel_engine/external/imgui -ID:/voxel_engine/external/imgui/backends -fuse-ld=lld -O3 -DNDEBUG -std=c++23 -o CMakeFiles\\engine_core.dir\\src\\voxels\\Level.cpp.obj -c D:\\voxel_engine\\src\\voxels\\Level.cpp",
+  "file": "D:/voxel_engine/src/voxels/Level.cpp",
+  "output": "D:/voxel_engine/out/build/mingw-x64-release/CMakeFiles/engine_core.dir/src/voxels/Level.cpp.obj"
+},
+{
+  "directory": "D:/voxel_engine/out/build/mingw-x64-release",
+  "command": "C:\\LLVM\\bin\\clang++.exe --target=x86_64-w64-mingw32 -ID:/voxel_engine/src -ID:/voxel_engine/src/gfx -ID:/voxel_engine/src/lighting -ID:/voxel_engine/src/util -ID:/voxel_engine/src/voxels -ID:/voxel_engine/src/window -ID:/voxel_engine/src/files -ID:/voxel_engine/src/physics -ID:/voxel_engine/src/state -ID:/voxel_engine/src/network -ID:/voxel_engine/external -ID:/voxel_engine/external/glm/glm -ID:/voxel_engine/external/glfw/include -ID:/voxel_engine/external/glad/include -ID:/voxel_engine/external/glm -ID:/voxel_engine/external/imgui -ID:/voxel_engine/external/imgui/backends -fuse-ld=lld -O3 -DNDEBUG -std=c++23 -o CMakeFiles\\engine_core.dir\\src\\lighting\\Lightmap.cpp.obj -c D:\\voxel_engine\\src\\lighting\\Lightmap.cpp",
+  "file": "D:/voxel_engine/src/lighting/Lightmap.cpp",
+  "output": "D:/voxel_engine/out/build/mingw-x64-release/CMakeFiles/engine_core.dir/src/lighting/Lightmap.cpp.obj"
+},
+{
+  "directory": "D:/voxel_engine/out/build/mingw-x64-release",
+  "command": "C:\\LLVM\\bin\\clang++.exe --target=x86_64-w64-mingw32 -ID:/voxel_engine/src -ID:/voxel_engine/src/gfx -ID:/voxel_engine/src/lighting -ID:/voxel_engine/src/util -ID:/voxel_engine/src/voxels -ID:/voxel_engine/src/window -ID:/voxel_engine/src/files -ID:/voxel_engine/src/physics -ID:/voxel_engine/src/state -ID:/voxel_engine/src/network -ID:/voxel_engine/external -ID:/voxel_engine/external/glm/glm -ID:/voxel_engine/external/glfw/include -ID:/voxel_engine/external/glad/include -ID:/voxel_engine/external/glm -ID:/voxel_engine/external/imgui -ID:/voxel_engine/external/imgui/backends -fuse-ld=lld -O3 -DNDEBUG -std=c++23 -o CMakeFiles\\engine_core.dir\\src\\lighting\\LightSolver.cpp.obj -c D:\\voxel_engine\\src\\lighting\\LightSolver.cpp",
+  "file": "D:/voxel_engine/src/lighting/LightSolver.cpp",
+  "output": "D:/voxel_engine/out/build/mingw-x64-release/CMakeFiles/engine_core.dir/src/lighting/LightSolver.cpp.obj"
+},
+{
+  "directory": "D:/voxel_engine/out/build/mingw-x64-release",
+  "command": "C:\\LLVM\\bin\\clang++.exe --target=x86_64-w64-mingw32 -ID:/voxel_engine/src -ID:/voxel_engine/src/gfx -ID:/voxel_engine/src/lighting -ID:/voxel_engine/src/util -ID:/voxel_engine/src/voxels -ID:/voxel_engine/src/window -ID:/voxel_engine/src/files -ID:/voxel_engine/src/physics -ID:/voxel_engine/src/state -ID:/voxel_engine/src/network -ID:/voxel_engine/external -ID:/voxel_engine/external/glm/glm -ID:/voxel_engine/external/glfw/include -ID:/voxel_engine/external/glad/include -ID:/voxel_engine/external/glm -ID:/voxel_engine/external/imgui -ID:/voxel_engine/external/imgui/backends -fuse-ld=lld -O3 -DNDEBUG -std=c++23 -o CMakeFiles\\engine_core.dir\\src\\lighting\\Lighting.cpp.obj -c D:\\voxel_engine\\src\\lighting\\Lighting.cpp",
+  "file": "D:/voxel_engine/src/lighting/Lighting.cpp",
+  "output": "D:/voxel_engine/out/build/mingw-x64-release/CMakeFiles/engine_core.dir/src/lighting/Lighting.cpp.obj"
+},
+{
+  "directory": "D:/voxel_engine/out/build/mingw-x64-release",
+  "command": "C:\\LLVM\\bin\\clang++.exe --target=x86_64-w64-mingw32 -ID:/voxel_engine/src -ID:/voxel_engine/src/gfx -ID:/voxel_engine/src/lighting -ID:/voxel_engine/src/util -ID:/voxel_engine/src/voxels -ID:/voxel_engine/src/window -ID:/voxel_engine/src/files -ID:/voxel_engine/src/physics -ID:/voxel_engine/src/state -ID:/voxel_engine/src/network -ID:/voxel_engine/external -ID:/voxel_engine/external/glm/glm -ID:/voxel_engine/external/glfw/include -ID:/voxel_engine/external/glad/include -ID:/voxel_engine/external/glm -ID:/voxel_engine/external/imgui -ID:/voxel_engine/external/imgui/backends -fuse-ld=lld -O3 -DNDEBUG -std=c++23 -o CMakeFiles\\engine_core.dir\\src\\files\\WorldFiles.cpp.obj -c D:\\voxel_engine\\src\\files\\WorldFiles.cpp",
+  "file": "D:/voxel_engine/src/files/WorldFiles.cpp",
+  "output": "D:/voxel_engine/out/build/mingw-x64-release/CMakeFiles/engine_core.dir/src/files/WorldFiles.cpp.obj"
+},
+{
+  "directory": "D:/voxel_engine/out/build/mingw-x64-release",
+  "command": "C:\\LLVM\\bin\\clang++.exe --target=x86_64-w64-mingw32 -ID:/voxel_engine/src -ID:/voxel_engine/src/gfx -ID:/voxel_engine/src/lighting -ID:/voxel_engine/src/util -ID:/voxel_engine/src/voxels -ID:/voxel_engine/src/window -ID:/voxel_engine/src/files -ID:/voxel_engine/src/physics -ID:/voxel_engine/src/state -ID:/voxel_engine/src/network -ID:/voxel_engine/external -ID:/voxel_engine/external/glm/glm -ID:/voxel_engine/external/glfw/include -ID:/voxel_engine/external/glad/include -ID:/voxel_engine/external/glm -ID:/voxel_engine/external/imgui -ID:/voxel_engine/external/imgui/backends -fuse-ld=lld -O3 -DNDEBUG -std=c++23 -o CMakeFiles\\engine_core.dir\\src\\physics\\PhysicsSolver.cpp.obj -c D:\\voxel_engine\\src\\physics\\PhysicsSolver.cpp",
+  "file": "D:/voxel_engine/src/physics/PhysicsSolver.cpp",
+  "output": "D:/voxel_engine/out/build/mingw-x64-release/CMakeFiles/engine_core.dir/src/physics/PhysicsSolver.cpp.obj"
+},
+{
+  "directory": "D:/voxel_engine/out/build/mingw-x64-release",
+  "command": "C:\\LLVM\\bin\\clang++.exe --target=x86_64-w64-mingw32 -ID:/voxel_engine/src -ID:/voxel_engine/src/gfx -ID:/voxel_engine/src/lighting -ID:/voxel_engine/src/util -ID:/voxel_engine/src/voxels -ID:/voxel_engine/src/window -ID:/voxel_engine/src/files -ID:/voxel_engine/src/physics -ID:/voxel_engine/src/state -ID:/voxel_engine/src/network -ID:/voxel_engine/external -ID:/voxel_engine/external/glm/glm -ID:/voxel_engine/external/glfw/include -ID:/voxel_engine/external/glad/include -ID:/voxel_engine/external/glm -ID:/voxel_engine/external/imgui -ID:/voxel_engine/external/imgui/backends -fuse-ld=lld -O3 -DNDEBUG -std=c++23 -o CMakeFiles\\engine_core.dir\\src\\state\\StateGame.cpp.obj -c D:\\voxel_engine\\src\\state\\StateGame.cpp",
+  "file": "D:/voxel_engine/src/state/StateGame.cpp",
+  "output": "D:/voxel_engine/out/build/mingw-x64-release/CMakeFiles/engine_core.dir/src/state/StateGame.cpp.obj"
+},
+{
+  "directory": "D:/voxel_engine/out/build/mingw-x64-release",
+  "command": "C:\\LLVM\\bin\\clang++.exe --target=x86_64-w64-mingw32 -ID:/voxel_engine/src -ID:/voxel_engine/src/gfx -ID:/voxel_engine/src/lighting -ID:/voxel_engine/src/util -ID:/voxel_engine/src/voxels -ID:/voxel_engine/src/window -ID:/voxel_engine/src/files -ID:/voxel_engine/src/physics -ID:/voxel_engine/src/state -ID:/voxel_engine/src/network -ID:/voxel_engine/external -ID:/voxel_engine/external/glm/glm -ID:/voxel_engine/external/glfw/include -ID:/voxel_engine/external/glad/include -ID:/voxel_engine/external/glm -ID:/voxel_engine/external/imgui -ID:/voxel_engine/external/imgui/backends -fuse-ld=lld -O3 -DNDEBUG -std=c++23 -o CMakeFiles\\engine_core.dir\\src\\Player.cpp.obj -c D:\\voxel_engine\\src\\Player.cpp",
+  "file": "D:/voxel_engine/src/Player.cpp",
+  "output": "D:/voxel_engine/out/build/mingw-x64-release/CMakeFiles/engine_core.dir/src/Player.cpp.obj"
+},
+{
+  "directory": "D:/voxel_engine/out/build/mingw-x64-release",
+  "command": "C:\\LLVM\\bin\\clang++.exe --target=x86_64-w64-mingw32 -ID:/voxel_engine/src -ID:/voxel_engine/src/gfx -ID:/voxel_engine/src/lighting -ID:/voxel_engine/src/util -ID:/voxel_engine/src/voxels -ID:/voxel_engine/src/window -ID:/voxel_engine/src/files -ID:/voxel_engine/src/physics -ID:/voxel_engine/src/state -ID:/voxel_engine/src/network -ID:/voxel_engine/external -ID:/voxel_engine/external/glm/glm -ID:/voxel_engine/external/glfw/include -ID:/voxel_engine/external/glad/include -ID:/voxel_engine/external/glm -ID:/voxel_engine/external/imgui -ID:/voxel_engine/external/imgui/backends -fuse-ld=lld -O3 -DNDEBUG -std=c++23 -o CMakeFiles\\engine_core.dir\\src\\gfx\\VoxelModel.cpp.obj -c D:\\voxel_engine\\src\\gfx\\VoxelModel.cpp",
+  "file": "D:/voxel_engine/src/gfx/VoxelModel.cpp",
+  "output": "D:/voxel_engine/out/build/mingw-x64-release/CMakeFiles/engine_core.dir/src/gfx/VoxelModel.cpp.obj"
+},
+{
+  "directory": "D:/voxel_engine/out/build/mingw-x64-release",
+  "command": "C:\\LLVM\\bin\\clang++.exe --target=x86_64-w64-mingw32 -ID:/voxel_engine/src -ID:/voxel_engine/src/gfx -ID:/voxel_engine/src/lighting -ID:/voxel_engine/src/util -ID:/voxel_engine/src/voxels -ID:/voxel_engine/src/window -ID:/voxel_engine/src/files -ID:/voxel_engine/src/physics -ID:/voxel_engine/src/state -ID:/voxel_engine/src/network -ID:/voxel_engine/external -ID:/voxel_engine/external/glm/glm -ID:/voxel_engine/external/glfw/include -ID:/voxel_engine/external/glad/include -ID:/voxel_engine/external/glm -ID:/voxel_engine/external/imgui -ID:/voxel_engine/external/imgui/backends -fuse-ld=lld -O3 -DNDEBUG -std=c++23 -gdwarf-4 -fno-omit-frame-pointer -funwind-tables -o CMakeFiles\\voxel_engine.dir\\src\\main.cpp.obj -c D:\\voxel_engine\\src\\main.cpp",
+  "file": "D:/voxel_engine/src/main.cpp",
+  "output": "D:/voxel_engine/out/build/mingw-x64-release/CMakeFiles/voxel_engine.dir/src/main.cpp.obj"
+},
+{
+  "directory": "D:/voxel_engine/out/build/mingw-x64-release",
+  "command": "C:\\LLVM\\bin\\clang++.exe --target=x86_64-w64-mingw32 -ID:/voxel_engine/src -ID:/voxel_engine/src/gfx -ID:/voxel_engine/src/lighting -ID:/voxel_engine/src/util -ID:/voxel_engine/src/voxels -ID:/voxel_engine/src/window -ID:/voxel_engine/src/files -ID:/voxel_engine/src/physics -ID:/voxel_engine/src/state -ID:/voxel_engine/src/network -ID:/voxel_engine/external -ID:/voxel_engine/external/glm/glm -ID:/voxel_engine/external/glfw/include -ID:/voxel_engine/external/glad/include -ID:/voxel_engine/external/glm -ID:/voxel_engine/external/imgui -ID:/voxel_engine/external/imgui/backends -fuse-ld=lld -O3 -DNDEBUG -std=c++23 -gdwarf-4 -fno-omit-frame-pointer -funwind-tables -o CMakeFiles\\client.dir\\src\\client.cpp.obj -c D:\\voxel_engine\\src\\client.cpp",
+  "file": "D:/voxel_engine/src/client.cpp",
+  "output": "D:/voxel_engine/out/build/mingw-x64-release/CMakeFiles/client.dir/src/client.cpp.obj"
+},
+{
+  "directory": "D:/voxel_engine/out/build/mingw-x64-release",
+  "command": "C:\\LLVM\\bin\\clang.exe --target=x86_64-w64-mingw32 -DUNICODE -DWINVER=0x0501 -D_GLFW_WIN32 -D_UNICODE -ID:/voxel_engine/external/glfw/include -ID:/voxel_engine/external/glfw/src -ID:/voxel_engine/out/build/mingw-x64-release/external/glfw/src -fuse-ld=lld -O3 -DNDEBUG -std=c99 -Wall -o external\\glfw\\src\\CMakeFiles\\glfw.dir\\context.c.obj -c D:\\voxel_engine\\external\\glfw\\src\\context.c",
+  "file": "D:/voxel_engine/external/glfw/src/context.c",
+  "output": "D:/voxel_engine/out/build/mingw-x64-release/external/glfw/src/CMakeFiles/glfw.dir/context.c.obj"
+},
+{
+  "directory": "D:/voxel_engine/out/build/mingw-x64-release",
+  "command": "C:\\LLVM\\bin\\clang.exe --target=x86_64-w64-mingw32 -DUNICODE -DWINVER=0x0501 -D_GLFW_WIN32 -D_UNICODE -ID:/voxel_engine/external/glfw/include -ID:/voxel_engine/external/glfw/src -ID:/voxel_engine/out/build/mingw-x64-release/external/glfw/src -fuse-ld=lld -O3 -DNDEBUG -std=c99 -Wall -o external\\glfw\\src\\CMakeFiles\\glfw.dir\\init.c.obj -c D:\\voxel_engine\\external\\glfw\\src\\init.c",
+  "file": "D:/voxel_engine/external/glfw/src/init.c",
+  "output": "D:/voxel_engine/out/build/mingw-x64-release/external/glfw/src/CMakeFiles/glfw.dir/init.c.obj"
+},
+{
+  "directory": "D:/voxel_engine/out/build/mingw-x64-release",
+  "command": "C:\\LLVM\\bin\\clang.exe --target=x86_64-w64-mingw32 -DUNICODE -DWINVER=0x0501 -D_GLFW_WIN32 -D_UNICODE -ID:/voxel_engine/external/glfw/include -ID:/voxel_engine/external/glfw/src -ID:/voxel_engine/out/build/mingw-x64-release/external/glfw/src -fuse-ld=lld -O3 -DNDEBUG -std=c99 -Wall -o external\\glfw\\src\\CMakeFiles\\glfw.dir\\input.c.obj -c D:\\voxel_engine\\external\\glfw\\src\\input.c",
+  "file": "D:/voxel_engine/external/glfw/src/input.c",
+  "output": "D:/voxel_engine/out/build/mingw-x64-release/external/glfw/src/CMakeFiles/glfw.dir/input.c.obj"
+},
+{
+  "directory": "D:/voxel_engine/out/build/mingw-x64-release",
+  "command": "C:\\LLVM\\bin\\clang.exe --target=x86_64-w64-mingw32 -DUNICODE -DWINVER=0x0501 -D_GLFW_WIN32 -D_UNICODE -ID:/voxel_engine/external/glfw/include -ID:/voxel_engine/external/glfw/src -ID:/voxel_engine/out/build/mingw-x64-release/external/glfw/src -fuse-ld=lld -O3 -DNDEBUG -std=c99 -Wall -o external\\glfw\\src\\CMakeFiles\\glfw.dir\\monitor.c.obj -c D:\\voxel_engine\\external\\glfw\\src\\monitor.c",
+  "file": "D:/voxel_engine/external/glfw/src/monitor.c",
+  "output": "D:/voxel_engine/out/build/mingw-x64-release/external/glfw/src/CMakeFiles/glfw.dir/monitor.c.obj"
+},
+{
+  "directory": "D:/voxel_engine/out/build/mingw-x64-release",
+  "command": "C:\\LLVM\\bin\\clang.exe --target=x86_64-w64-mingw32 -DUNICODE -DWINVER=0x0501 -D_GLFW_WIN32 -D_UNICODE -ID:/voxel_engine/external/glfw/include -ID:/voxel_engine/external/glfw/src -ID:/voxel_engine/out/build/mingw-x64-release/external/glfw/src -fuse-ld=lld -O3 -DNDEBUG -std=c99 -Wall -o external\\glfw\\src\\CMakeFiles\\glfw.dir\\platform.c.obj -c D:\\voxel_engine\\external\\glfw\\src\\platform.c",
+  "file": "D:/voxel_engine/external/glfw/src/platform.c",
+  "output": "D:/voxel_engine/out/build/mingw-x64-release/external/glfw/src/CMakeFiles/glfw.dir/platform.c.obj"
+},
+{
+  "directory": "D:/voxel_engine/out/build/mingw-x64-release",
+  "command": "C:\\LLVM\\bin\\clang.exe --target=x86_64-w64-mingw32 -DUNICODE -DWINVER=0x0501 -D_GLFW_WIN32 -D_UNICODE -ID:/voxel_engine/external/glfw/include -ID:/voxel_engine/external/glfw/src -ID:/voxel_engine/out/build/mingw-x64-release/external/glfw/src -fuse-ld=lld -O3 -DNDEBUG -std=c99 -Wall -o external\\glfw\\src\\CMakeFiles\\glfw.dir\\vulkan.c.obj -c D:\\voxel_engine\\external\\glfw\\src\\vulkan.c",
+  "file": "D:/voxel_engine/external/glfw/src/vulkan.c",
+  "output": "D:/voxel_engine/out/build/mingw-x64-release/external/glfw/src/CMakeFiles/glfw.dir/vulkan.c.obj"
+},
+{
+  "directory": "D:/voxel_engine/out/build/mingw-x64-release",
+  "command": "C:\\LLVM\\bin\\clang.exe --target=x86_64-w64-mingw32 -DUNICODE -DWINVER=0x0501 -D_GLFW_WIN32 -D_UNICODE -ID:/voxel_engine/external/glfw/include -ID:/voxel_engine/external/glfw/src -ID:/voxel_engine/out/build/mingw-x64-release/external/glfw/src -fuse-ld=lld -O3 -DNDEBUG -std=c99 -Wall -o external\\glfw\\src\\CMakeFiles\\glfw.dir\\window.c.obj -c D:\\voxel_engine\\external\\glfw\\src\\window.c",
+  "file": "D:/voxel_engine/external/glfw/src/window.c",
+  "output": "D:/voxel_engine/out/build/mingw-x64-release/external/glfw/src/CMakeFiles/glfw.dir/window.c.obj"
+},
+{
+  "directory": "D:/voxel_engine/out/build/mingw-x64-release",
+  "command": "C:\\LLVM\\bin\\clang.exe --target=x86_64-w64-mingw32 -DUNICODE -DWINVER=0x0501 -D_GLFW_WIN32 -D_UNICODE -ID:/voxel_engine/external/glfw/include -ID:/voxel_engine/external/glfw/src -ID:/voxel_engine/out/build/mingw-x64-release/external/glfw/src -fuse-ld=lld -O3 -DNDEBUG -std=c99 -Wall -o external\\glfw\\src\\CMakeFiles\\glfw.dir\\egl_context.c.obj -c D:\\voxel_engine\\external\\glfw\\src\\egl_context.c",
+  "file": "D:/voxel_engine/external/glfw/src/egl_context.c",
+  "output": "D:/voxel_engine/out/build/mingw-x64-release/external/glfw/src/CMakeFiles/glfw.dir/egl_context.c.obj"
+},
+{
+  "directory": "D:/voxel_engine/out/build/mingw-x64-release",
+  "command": "C:\\LLVM\\bin\\clang.exe --target=x86_64-w64-mingw32 -DUNICODE -DWINVER=0x0501 -D_GLFW_WIN32 -D_UNICODE -ID:/voxel_engine/external/glfw/include -ID:/voxel_engine/external/glfw/src -ID:/voxel_engine/out/build/mingw-x64-release/external/glfw/src -fuse-ld=lld -O3 -DNDEBUG -std=c99 -Wall -o external\\glfw\\src\\CMakeFiles\\glfw.dir\\osmesa_context.c.obj -c D:\\voxel_engine\\external\\glfw\\src\\osmesa_context.c",
+  "file": "D:/voxel_engine/external/glfw/src/osmesa_context.c",
+  "output": "D:/voxel_engine/out/build/mingw-x64-release/external/glfw/src/CMakeFiles/glfw.dir/osmesa_context.c.obj"
+},
+{
+  "directory": "D:/voxel_engine/out/build/mingw-x64-release",
+  "command": "C:\\LLVM\\bin\\clang.exe --target=x86_64-w64-mingw32 -DUNICODE -DWINVER=0x0501 -D_GLFW_WIN32 -D_UNICODE -ID:/voxel_engine/external/glfw/include -ID:/voxel_engine/external/glfw/src -ID:/voxel_engine/out/build/mingw-x64-release/external/glfw/src -fuse-ld=lld -O3 -DNDEBUG -std=c99 -Wall -o external\\glfw\\src\\CMakeFiles\\glfw.dir\\null_init.c.obj -c D:\\voxel_engine\\external\\glfw\\src\\null_init.c",
+  "file": "D:/voxel_engine/external/glfw/src/null_init.c",
+  "output": "D:/voxel_engine/out/build/mingw-x64-release/external/glfw/src/CMakeFiles/glfw.dir/null_init.c.obj"
+},
+{
+  "directory": "D:/voxel_engine/out/build/mingw-x64-release",
+  "command": "C:\\LLVM\\bin\\clang.exe --target=x86_64-w64-mingw32 -DUNICODE -DWINVER=0x0501 -D_GLFW_WIN32 -D_UNICODE -ID:/voxel_engine/external/glfw/include -ID:/voxel_engine/external/glfw/src -ID:/voxel_engine/out/build/mingw-x64-release/external/glfw/src -fuse-ld=lld -O3 -DNDEBUG -std=c99 -Wall -o external\\glfw\\src\\CMakeFiles\\glfw.dir\\null_monitor.c.obj -c D:\\voxel_engine\\external\\glfw\\src\\null_monitor.c",
+  "file": "D:/voxel_engine/external/glfw/src/null_monitor.c",
+  "output": "D:/voxel_engine/out/build/mingw-x64-release/external/glfw/src/CMakeFiles/glfw.dir/null_monitor.c.obj"
+},
+{
+  "directory": "D:/voxel_engine/out/build/mingw-x64-release",
+  "command": "C:\\LLVM\\bin\\clang.exe --target=x86_64-w64-mingw32 -DUNICODE -DWINVER=0x0501 -D_GLFW_WIN32 -D_UNICODE -ID:/voxel_engine/external/glfw/include -ID:/voxel_engine/external/glfw/src -ID:/voxel_engine/out/build/mingw-x64-release/external/glfw/src -fuse-ld=lld -O3 -DNDEBUG -std=c99 -Wall -o external\\glfw\\src\\CMakeFiles\\glfw.dir\\null_window.c.obj -c D:\\voxel_engine\\external\\glfw\\src\\null_window.c",
+  "file": "D:/voxel_engine/external/glfw/src/null_window.c",
+  "output": "D:/voxel_engine/out/build/mingw-x64-release/external/glfw/src/CMakeFiles/glfw.dir/null_window.c.obj"
+},
+{
+  "directory": "D:/voxel_engine/out/build/mingw-x64-release",
+  "command": "C:\\LLVM\\bin\\clang.exe --target=x86_64-w64-mingw32 -DUNICODE -DWINVER=0x0501 -D_GLFW_WIN32 -D_UNICODE -ID:/voxel_engine/external/glfw/include -ID:/voxel_engine/external/glfw/src -ID:/voxel_engine/out/build/mingw-x64-release/external/glfw/src -fuse-ld=lld -O3 -DNDEBUG -std=c99 -Wall -o external\\glfw\\src\\CMakeFiles\\glfw.dir\\null_joystick.c.obj -c D:\\voxel_engine\\external\\glfw\\src\\null_joystick.c",
+  "file": "D:/voxel_engine/external/glfw/src/null_joystick.c",
+  "output": "D:/voxel_engine/out/build/mingw-x64-release/external/glfw/src/CMakeFiles/glfw.dir/null_joystick.c.obj"
+},
+{
+  "directory": "D:/voxel_engine/out/build/mingw-x64-release",
+  "command": "C:\\LLVM\\bin\\clang.exe --target=x86_64-w64-mingw32 -DUNICODE -DWINVER=0x0501 -D_GLFW_WIN32 -D_UNICODE -ID:/voxel_engine/external/glfw/include -ID:/voxel_engine/external/glfw/src -ID:/voxel_engine/out/build/mingw-x64-release/external/glfw/src -fuse-ld=lld -O3 -DNDEBUG -std=c99 -Wall -o external\\glfw\\src\\CMakeFiles\\glfw.dir\\win32_module.c.obj -c D:\\voxel_engine\\external\\glfw\\src\\win32_module.c",
+  "file": "D:/voxel_engine/external/glfw/src/win32_module.c",
+  "output": "D:/voxel_engine/out/build/mingw-x64-release/external/glfw/src/CMakeFiles/glfw.dir/win32_module.c.obj"
+},
+{
+  "directory": "D:/voxel_engine/out/build/mingw-x64-release",
+  "command": "C:\\LLVM\\bin\\clang.exe --target=x86_64-w64-mingw32 -DUNICODE -DWINVER=0x0501 -D_GLFW_WIN32 -D_UNICODE -ID:/voxel_engine/external/glfw/include -ID:/voxel_engine/external/glfw/src -ID:/voxel_engine/out/build/mingw-x64-release/external/glfw/src -fuse-ld=lld -O3 -DNDEBUG -std=c99 -Wall -o external\\glfw\\src\\CMakeFiles\\glfw.dir\\win32_time.c.obj -c D:\\voxel_engine\\external\\glfw\\src\\win32_time.c",
+  "file": "D:/voxel_engine/external/glfw/src/win32_time.c",
+  "output": "D:/voxel_engine/out/build/mingw-x64-release/external/glfw/src/CMakeFiles/glfw.dir/win32_time.c.obj"
+},
+{
+  "directory": "D:/voxel_engine/out/build/mingw-x64-release",
+  "command": "C:\\LLVM\\bin\\clang.exe --target=x86_64-w64-mingw32 -DUNICODE -DWINVER=0x0501 -D_GLFW_WIN32 -D_UNICODE -ID:/voxel_engine/external/glfw/include -ID:/voxel_engine/external/glfw/src -ID:/voxel_engine/out/build/mingw-x64-release/external/glfw/src -fuse-ld=lld -O3 -DNDEBUG -std=c99 -Wall -o external\\glfw\\src\\CMakeFiles\\glfw.dir\\win32_thread.c.obj -c D:\\voxel_engine\\external\\glfw\\src\\win32_thread.c",
+  "file": "D:/voxel_engine/external/glfw/src/win32_thread.c",
+  "output": "D:/voxel_engine/out/build/mingw-x64-release/external/glfw/src/CMakeFiles/glfw.dir/win32_thread.c.obj"
+},
+{
+  "directory": "D:/voxel_engine/out/build/mingw-x64-release",
+  "command": "C:\\LLVM\\bin\\clang.exe --target=x86_64-w64-mingw32 -DUNICODE -DWINVER=0x0501 -D_GLFW_WIN32 -D_UNICODE -ID:/voxel_engine/external/glfw/include -ID:/voxel_engine/external/glfw/src -ID:/voxel_engine/out/build/mingw-x64-release/external/glfw/src -fuse-ld=lld -O3 -DNDEBUG -std=c99 -Wall -o external\\glfw\\src\\CMakeFiles\\glfw.dir\\win32_init.c.obj -c D:\\voxel_engine\\external\\glfw\\src\\win32_init.c",
+  "file": "D:/voxel_engine/external/glfw/src/win32_init.c",
+  "output": "D:/voxel_engine/out/build/mingw-x64-release/external/glfw/src/CMakeFiles/glfw.dir/win32_init.c.obj"
+},
+{
+  "directory": "D:/voxel_engine/out/build/mingw-x64-release",
+  "command": "C:\\LLVM\\bin\\clang.exe --target=x86_64-w64-mingw32 -DUNICODE -DWINVER=0x0501 -D_GLFW_WIN32 -D_UNICODE -ID:/voxel_engine/external/glfw/include -ID:/voxel_engine/external/glfw/src -ID:/voxel_engine/out/build/mingw-x64-release/external/glfw/src -fuse-ld=lld -O3 -DNDEBUG -std=c99 -Wall -o external\\glfw\\src\\CMakeFiles\\glfw.dir\\win32_joystick.c.obj -c D:\\voxel_engine\\external\\glfw\\src\\win32_joystick.c",
+  "file": "D:/voxel_engine/external/glfw/src/win32_joystick.c",
+  "output": "D:/voxel_engine/out/build/mingw-x64-release/external/glfw/src/CMakeFiles/glfw.dir/win32_joystick.c.obj"
+},
+{
+  "directory": "D:/voxel_engine/out/build/mingw-x64-release",
+  "command": "C:\\LLVM\\bin\\clang.exe --target=x86_64-w64-mingw32 -DUNICODE -DWINVER=0x0501 -D_GLFW_WIN32 -D_UNICODE -ID:/voxel_engine/external/glfw/include -ID:/voxel_engine/external/glfw/src -ID:/voxel_engine/out/build/mingw-x64-release/external/glfw/src -fuse-ld=lld -O3 -DNDEBUG -std=c99 -Wall -o external\\glfw\\src\\CMakeFiles\\glfw.dir\\win32_monitor.c.obj -c D:\\voxel_engine\\external\\glfw\\src\\win32_monitor.c",
+  "file": "D:/voxel_engine/external/glfw/src/win32_monitor.c",
+  "output": "D:/voxel_engine/out/build/mingw-x64-release/external/glfw/src/CMakeFiles/glfw.dir/win32_monitor.c.obj"
+},
+{
+  "directory": "D:/voxel_engine/out/build/mingw-x64-release",
+  "command": "C:\\LLVM\\bin\\clang.exe --target=x86_64-w64-mingw32 -DUNICODE -DWINVER=0x0501 -D_GLFW_WIN32 -D_UNICODE -ID:/voxel_engine/external/glfw/include -ID:/voxel_engine/external/glfw/src -ID:/voxel_engine/out/build/mingw-x64-release/external/glfw/src -fuse-ld=lld -O3 -DNDEBUG -std=c99 -Wall -o external\\glfw\\src\\CMakeFiles\\glfw.dir\\win32_window.c.obj -c D:\\voxel_engine\\external\\glfw\\src\\win32_window.c",
+  "file": "D:/voxel_engine/external/glfw/src/win32_window.c",
+  "output": "D:/voxel_engine/out/build/mingw-x64-release/external/glfw/src/CMakeFiles/glfw.dir/win32_window.c.obj"
+},
+{
+  "directory": "D:/voxel_engine/out/build/mingw-x64-release",
+  "command": "C:\\LLVM\\bin\\clang.exe --target=x86_64-w64-mingw32 -DUNICODE -DWINVER=0x0501 -D_GLFW_WIN32 -D_UNICODE -ID:/voxel_engine/external/glfw/include -ID:/voxel_engine/external/glfw/src -ID:/voxel_engine/out/build/mingw-x64-release/external/glfw/src -fuse-ld=lld -O3 -DNDEBUG -std=c99 -Wall -o external\\glfw\\src\\CMakeFiles\\glfw.dir\\wgl_context.c.obj -c D:\\voxel_engine\\external\\glfw\\src\\wgl_context.c",
+  "file": "D:/voxel_engine/external/glfw/src/wgl_context.c",
+  "output": "D:/voxel_engine/out/build/mingw-x64-release/external/glfw/src/CMakeFiles/glfw.dir/wgl_context.c.obj"
+},
+{
+  "directory": "D:/voxel_engine/out/build/mingw-x64-release",
+  "command": "C:\\LLVM\\bin\\clang++.exe --target=x86_64-w64-mingw32 -ID:/voxel_engine/external/glm -fuse-ld=lld -O3 -DNDEBUG -std=c++17 -Wno-c++98-compat -Wno-c++98-compat-pedantic -Wno-switch-default -o external\\glm\\glm\\CMakeFiles\\glm.dir\\detail\\glm.cpp.obj -c D:\\voxel_engine\\external\\glm\\glm\\detail\\glm.cpp",
+  "file": "D:/voxel_engine/external/glm/glm/detail/glm.cpp",
+  "output": "D:/voxel_engine/out/build/mingw-x64-release/external/glm/glm/CMakeFiles/glm.dir/detail/glm.cpp.obj"
+}
+]

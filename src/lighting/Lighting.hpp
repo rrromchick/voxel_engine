@@ -14,6 +14,7 @@ struct Lighting {
     Lighting &operator=(Lighting &&other) = default;
 
     void clear();
+    void solve();
     void on_chunk_loaded(int cx, int cy, int cz);
     void on_block_set(int x, int y, int z, int id);
 

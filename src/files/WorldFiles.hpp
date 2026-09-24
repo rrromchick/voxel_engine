@@ -60,4 +60,5 @@ struct WorldFiles {
     void write();
 
     [[nodiscard]] std::string get_region_file(int rx, int rz) const;
+    void write_region_to_file(int rx, int rz);
 };
