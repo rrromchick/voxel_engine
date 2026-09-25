@@ -52,11 +52,9 @@ void Level::set(int world_x, int world_y, int world_z, uint8_t block_id) {
     set_voxel(world_x, world_y, world_z, block_id);
 }
 
-// Inside Level_4.cpp
 void Level::ensure_loaded_around(int cx, int cy, int cz, int radius, WorldFiles *world_files) {
-    // Limit load rate: process max 2-4 chunks per frame to prevent disk I/O saturation
     int loaded_this_frame = 0;
-    const int max_loads_per_frame = 2;
+    constexpr int max_loads_per_frame = 2; 
 
     for (int y = cy - radius; y <= cy + radius; ++y) {
         for (int z = cz - radius; z <= cz + radius; ++z) {
@@ -88,8 +86,6 @@ void Level::ensure_loaded_around(int cx, int cy, int cz, int radius, WorldFiles 
     }
 }
 
-// Avoid calling write() inside frame ticks every time a chunk unloads!
-// Instead, schedule saving at fixed intervals or upon game exit.
 void Level::unload_distant_chunks(const std::vector<glm::vec3> &player_positions, int max_chunk_distance) {
     for (auto it = chunks.begin(); it != chunks.end(); ) {
         bool keep = false;
@@ -143,7 +139,6 @@ bool Level::set_voxel(int world_x, int world_y, int world_z, uint8_t block_id) {
     chunk->voxels[index].id = block_id;
     chunk->modified = true;
 
-    // Restore boundary modification for neighbor mesh rebuilds
     Chunk *neighbor = nullptr;
     if (lx == 0 && (neighbor = get_chunk(cx - 1, cy, cz))) neighbor->modified = true;
     if (ly == 0 && (neighbor = get_chunk(cx, cy - 1, cz))) neighbor->modified = true;
@@ -160,11 +155,9 @@ bool Level::decorate_visible(const std::vector<glm::vec3> &player_positions) {
     float min_distance = std::numeric_limits<float>::max();
     bool found = false;
 
-    // 1. Find undecorated chunk that has ALL 27 neighbor chunks available
     for (const auto &[pos, chunk] : chunks) {
         if (!chunk || chunk->decorated) continue;
 
-        // Ensure all 27 neighbors exist before considering this candidate
         bool has_all_neighbors = true;
         for (int oy = -1; oy <= 1 && has_all_neighbors; oy++) {
             for (int oz = -1; oz <= 1 && has_all_neighbors; oz++) {
@@ -206,17 +199,12 @@ bool Level::decorate_visible(const std::vector<glm::vec3> &player_positions) {
         }
     }
 
-    // 2. Decorate terrain
     global.generator->decorate(chunk, closes);
     chunk->decorated = true;
 
-    // 3. Flag affected neighbors as modified & update light maps if needed
     for (auto *neighbor : closes) {
         if (neighbor) {
             neighbor->modified = true;
-            if (global.lighting) {
-                global.lighting->on_chunk_loaded(neighbor->x, neighbor->y, neighbor->z);
-            }
         }
     }
 

@@ -233,7 +233,7 @@ void process_client_packet(const std::shared_ptr<Connection> &client, Packet &pa
                     global.ecs->level->set(x, y, z, block_id);
                     if (global.lighting) {
                         global.lighting->on_block_set(x, y, z, block_id);
-                        global.lighting->solve(); // Solve server-side light changes
+                        global.lighting->solve(); 
                     }
 
                     auto* chunk = global.ecs->level->get_chunk_by_voxel(x, y, z);
@@ -243,15 +243,13 @@ void process_client_packet(const std::shared_ptr<Connection> &client, Packet &pa
                         // global.world_files->write();
                     }
                 }
-                
-                // Construct a fresh broadcast packet to avoid read-pointer offset issues
+
                 Packet broadcast_modify(PacketType::BlockModify);
                 broadcast_modify.write<int32_t>(x);
                 broadcast_modify.write<int32_t>(y);
                 broadcast_modify.write<int32_t>(z);
                 broadcast_modify.write<uint8_t>(block_id);
-                
-                // Broadcast to all connected clients (including sender or excluding sender if client already predicted it)
+
                 broadcast_packet_all(broadcast_modify);
             }
             break;
@@ -305,8 +303,6 @@ int main(int argc, char *argv[]) {
     global.lighting = std::make_unique<Lighting>();
 
     global.ecs->level = std::make_unique<Level>();
-
-    // Initial region world loading & decoration around origin
     global.ecs->level->ensure_loaded_around(0, 0, 0, 4, global.world_files.get());
     
     std::vector<glm::vec3> initial_positions = { glm::vec3(0.0f) };
@@ -368,7 +364,6 @@ int main(int argc, char *argv[]) {
                 }
             }
 
-            // Ensure world chunks are loaded around all connected players
             std::vector<glm::vec3> player_positions;
             for (std::size_t i = 0; i < global.ecs->size; i++) {
                 ECS::Object obj { global.ecs.get(), static_cast<EntityId>(i) };
@@ -385,13 +380,10 @@ int main(int argc, char *argv[]) {
                 }
             }
 
-            // main.cpp - Server Loop
             if (!player_positions.empty()) {
-                // Keep decorating until all chunks in radius are decorated
                 global.ecs->level->decorate_visible(player_positions);
             }
 
-            // Run physics AFTER world chunks are guaranteed to exist
             physics_solver->step(dt, 4);
 
             for (std::size_t i = 0; i < global.ecs->size; i++) {

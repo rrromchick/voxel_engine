@@ -136,11 +136,8 @@ void StateGame::init() {
     camera = std::make_unique<Camera>(glm::vec3(32, 120.5f, 32), glm::radians(90.0f));
     player = Player::create(glm::vec3(32, 122.0f, 32));
 
-    // global.thread_pool = std::make_unique<ThreadPool>();
-
     request_entity_spawn(glm::vec3(32.0f, 122.0f, 32.0f));
 
-    // 1. Ensure world chunks exist around the camera
     global.ecs->level->ensure_loaded_around(
         static_cast<int>(std::floor(camera->position.x / Chunk::WIDTH)),
         static_cast<int>(std::floor(camera->position.y / Chunk::HEIGHT)),
@@ -149,7 +146,6 @@ void StateGame::init() {
         global.world_files.get()
     );
 
-    // 2. Notify lighting engine about newly loaded chunks missing lightmaps
     if (global.lighting) {
         bool pending_solve = false;
         for (const auto &[pos, chunk] : global.ecs->level->chunks) {
@@ -158,13 +154,6 @@ void StateGame::init() {
                 pending_solve = true;
             }
         }
-        // if (pending_solve) {
-        //     global.thread_pool->enqueue([]() {
-        //         if (global.lighting) {
-        //             global.lighting->solve();
-        //         }
-        //     });
-        // }
     }
 
     IMGUI_CHECKVERSION();
@@ -276,8 +265,7 @@ void StateGame::process_network_packets() {
                     auto* level = global.ecs->level.get();
                     auto* chunk = level->get_chunk_by_voxel(x, y, z);
                     if (chunk) {
-                        ChunkPos pos{ chunk->x, chunk->y, chunk->z };
-                        level->meshes.erase(pos);
+                        chunk->modified = true;
 
                         int lx = (x % Chunk::WIDTH + Chunk::WIDTH) % Chunk::WIDTH;
                         int ly = (y % Chunk::HEIGHT + Chunk::HEIGHT) % Chunk::HEIGHT;
@@ -286,6 +274,7 @@ void StateGame::process_network_packets() {
                         auto invalidate_neighbor = [&](int nx, int ny, int nz) {
                             auto* n_chunk = level->get_chunk_by_voxel(nx, ny, nz);
                             if (n_chunk) {
+                                n_chunk->modified = true;
                                 level->meshes.erase(ChunkPos{ n_chunk->x, n_chunk->y, n_chunk->z });
                             }
                         };
@@ -300,6 +289,7 @@ void StateGame::process_network_packets() {
 
                     if (global.lighting) {
                         global.lighting->on_block_set(x, y, z, block_id);
+                        global.lighting->solve();
                     }
                 }
                 break;
@@ -443,39 +433,30 @@ void StateGame::update() {
 
     std::vector<glm::vec3> player_positions = { camera->position };
 
-    // Calculate current chunk position to avoid redundant updates every frame
-    int current_chunk_x = static_cast<int>(std::floor(camera->position.x / Chunk::WIDTH));
-    int current_chunk_y = static_cast<int>(std::floor(camera->position.y / Chunk::HEIGHT));
-    int current_chunk_z = static_cast<int>(std::floor(camera->position.z / Chunk::DEPTH));
+    auto current_chunk_x = static_cast<int>(std::floor(camera->position.x / Chunk::WIDTH));
+    auto current_chunk_y = static_cast<int>(std::floor(camera->position.y / Chunk::HEIGHT));
+    auto current_chunk_z = static_cast<int>(std::floor(camera->position.z / Chunk::DEPTH));
 
-    // 1. Ensure world chunks exist around camera
     level->ensure_loaded_around(
         current_chunk_x, current_chunk_y, current_chunk_z,
         2, global.world_files.get()
     );
 
-    // 2. Offload lighting updates asynchronously to thread pool
     if (global.lighting) {
-        bool needs_solve = false;
-        for (const auto &[pos, chunk] : level->chunks) {
+        bool pending_solve = false;
+        for (const auto &[pos, chunk] : global.ecs->level->chunks) {
             if (chunk && !chunk->lightmap) {
                 global.lighting->on_chunk_loaded(chunk->x, chunk->y, chunk->z);
-                needs_solve = true;
+                pending_solve = true;
             }
         }
-        // if (needs_solve && global.thread_pool) {
-        //     global.thread_pool->enqueue([]() {
-        //         if (global.lighting) {
-        //             global.lighting->solve();
-        //         }
-        //     });
-        // }
+        if (pending_solve) {
+            global.lighting->solve(); 
+        }
     }
 
-    // 3. Decorate visible chunks
     level->decorate_visible(player_positions);
 
-    // 4. Clear dirty flags & rebuild meshes
     if (global.lighting) {
         for (auto &[pos, chunk] : level->chunks) {
             if (chunk && chunk->lightmap && chunk->modified) {
@@ -487,7 +468,6 @@ void StateGame::update() {
 
     level->build_meshes(renderer.get(), player_positions);
 
-    // 6. Handle camera and raycasting interactions
     if (wnd->grabbed) {
         float sensitivity = 1.5f;
         cam_x += (-mouse->delta.x / wnd->get_size().x) * sensitivity;
