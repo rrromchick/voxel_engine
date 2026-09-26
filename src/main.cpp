@@ -235,13 +235,6 @@ void process_client_packet(const std::shared_ptr<Connection> &client, Packet &pa
                         global.lighting->on_block_set(x, y, z, block_id);
                         global.lighting->solve(); 
                     }
-
-                    auto* chunk = global.ecs->level->get_chunk_by_voxel(x, y, z);
-                    if (chunk && global.world_files) {
-                        std::span<const uint8_t> voxel_span{ reinterpret_cast<const uint8_t*>(chunk->voxels.get()), Chunk::VOLUME };
-                        global.world_files->put(voxel_span, chunk->x, chunk->y, chunk->z);
-                        // global.world_files->write();
-                    }
                 }
 
                 Packet broadcast_modify(PacketType::BlockModify);
@@ -336,6 +329,9 @@ int main(int argc, char *argv[]) {
     constexpr uint64_t NANOS_PER_TICK = (Time::NANOS_PER_SECOND / TARGET_TPS);
     uint64_t last_tick_time = global.time->now();
 
+    constexpr uint64_t SAVE_INTERVAL_NANOS = 30ULL * Time::NANOS_PER_SECOND;
+    uint64_t last_save_time = global.time->now();
+
     while (server->is_open()) {
         uint64_t current_time = global.time->now();
         uint64_t elapsed = current_time - last_tick_time;
@@ -405,6 +401,23 @@ int main(int argc, char *argv[]) {
                 }
             }
 
+            if (current_time - last_save_time >= SAVE_INTERVAL_NANOS) {
+                last_save_time = current_time;
+                if (global.ecs && global.ecs->level && global.world_files) {
+                    for (auto &[pos, chunk] : global.ecs->level->chunks) {
+                        if (chunk && chunk->modified) {
+                            std::span<const uint8_t> voxel_span{ 
+                                reinterpret_cast<const uint8_t*>(chunk->voxels.get()), 
+                                Chunk::VOLUME 
+                            };
+                            global.world_files->put(voxel_span, chunk->x, chunk->y, chunk->z);
+                            chunk->modified = false;
+                        }
+                    }
+                    global.world_files->write();
+                }
+            }
+
             std::this_thread::sleep_for(std::chrono::milliseconds(1));
         }
     }
@@ -412,12 +425,11 @@ int main(int argc, char *argv[]) {
     if (global.ecs && global.ecs->level && global.world_files) {
         for (auto &[pos, chunk] : global.ecs->level->chunks) {
             if (chunk) {
-                std::vector<uint8_t> buffer(Chunk::VOLUME * 2);
-                std::memcpy(buffer.data(), chunk->voxels.get(), Chunk::VOLUME);
-                if (chunk->lightmap) {
-                    std::memcpy(buffer.data() + Chunk::VOLUME, chunk->lightmap->map.get(), Chunk::VOLUME);
-                }
-                global.world_files->put(buffer, chunk->x, chunk->y, chunk->z);
+                std::span<const uint8_t> voxel_span{ 
+                    reinterpret_cast<const uint8_t*>(chunk->voxels.get()), 
+                    Chunk::VOLUME 
+                };
+                global.world_files->put(voxel_span, chunk->x, chunk->y, chunk->z);
             }
         }
         global.world_files->write();

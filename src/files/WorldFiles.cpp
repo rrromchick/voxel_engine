@@ -68,7 +68,6 @@ void WorldFiles::put(std::span<const uint8_t> chunk_data, int x, int y, int z) {
     }
 
     std::copy_n(chunk_data.begin(), Chunk::VOLUME, chunk.get());
-    write_region_to_file(region_x, region_z);
 }
 
 void WorldFiles::write_region_to_file(int rx, int rz) {

@@ -239,7 +239,7 @@ void Lighting::on_block_set(int x, int y, int z, int id) {
         solver_g->solve();
         solver_b->solve();
         solver_s->solve();
-    } else { // Solid block placed
+    } else {
         solver_r->remove(x, y, z);
         solver_g->remove(x, y, z);
         solver_b->remove(x, y, z);

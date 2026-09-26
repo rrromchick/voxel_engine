@@ -265,7 +265,7 @@ bool Level::build_meshes(VoxelRenderer *renderer, const std::vector<glm::vec3> &
 
 bool Level::is_obstacle(int world_x, int world_y, int world_z) const {
     auto *chunk = get_chunk_by_voxel(world_x, world_y, world_z);
-    if (!chunk) return false;
+    if (!chunk) return true;
 
     auto *vox = get_voxel(world_x, world_y, world_z);
     if (!vox) return false;
