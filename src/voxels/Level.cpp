@@ -54,7 +54,7 @@ void Level::set(int world_x, int world_y, int world_z, uint8_t block_id) {
 
 void Level::ensure_loaded_around(int cx, int cy, int cz, int radius, WorldFiles *world_files) {
     int loaded_this_frame = 0;
-    constexpr int max_loads_per_frame = 2; 
+    constexpr int max_loads_per_frame = 4;
 
     for (int y = cy - radius; y <= cy + radius; ++y) {
         for (int z = cz - radius; z <= cz + radius; ++z) {
@@ -64,6 +64,7 @@ void Level::ensure_loaded_around(int cx, int cy, int cz, int radius, WorldFiles 
                     if (loaded_this_frame >= max_loads_per_frame) return;
 
                     auto chunk = std::make_unique<Chunk>(x, y, z);
+
                     std::span<uint8_t> voxel_span{ reinterpret_cast<uint8_t*>(chunk->voxels.get()), Chunk::VOLUME };
 
                     if (world_files && world_files->get_chunk(x, y, z, voxel_span)) {
@@ -74,11 +75,12 @@ void Level::ensure_loaded_around(int cx, int cy, int cz, int radius, WorldFiles 
                         chunk->decorated = false;
                     }
 
+                    chunks[pos] = std::move(chunk);
+
                     if (global.lighting) {
                         global.lighting->on_chunk_loaded(x, y, z);
                     }
 
-                    chunks[pos] = std::move(chunk);
                     loaded_this_frame++;
                 }
             }

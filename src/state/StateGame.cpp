@@ -32,6 +32,8 @@ constexpr std::array<float, 8> vertices = {
 
 constexpr std::array<int, 2> attrs = { 2, 0 };
 
+static float block_action_cooldown = 0.0f;
+
 static void setup_definitions() {
     global.blocks[BlockId::AIR] = std::make_unique<Block>(BlockId::AIR, 0);
     global.blocks[BlockId::AIR]->draw_group = 1;
@@ -147,13 +149,12 @@ void StateGame::init() {
     );
 
     if (global.lighting) {
-        bool pending_solve = false;
         for (const auto &[pos, chunk] : global.ecs->level->chunks) {
-            if (chunk && !chunk->lightmap) {
+            if (chunk) {
                 global.lighting->on_chunk_loaded(chunk->x, chunk->y, chunk->z);
-                pending_solve = true;
             }
         }
+        global.lighting->solve();
     }
 
     IMGUI_CHECKVERSION();
@@ -197,6 +198,18 @@ void StateGame::process_network_packets() {
                     target_position = initial_pos; 
                     player.transform().position = target_position;
                     player.hitbox().position = target_position + glm::vec3(0.0f, player.hitbox().halfsize.y, 0.0f);
+
+                    int scx = static_cast<int>(std::floor(initial_pos.x / Chunk::WIDTH));
+                    int scy = static_cast<int>(std::floor(initial_pos.y / Chunk::HEIGHT));
+                    int scz = static_cast<int>(std::floor(initial_pos.z / Chunk::DEPTH));
+
+                    for (int dy = -1; dy <= 1; dy++) {
+                        for (int dz = -1; dz <= 1; dz++) {
+                            for (int dx = -1; dx <= 1; dx++) {
+                                global.ecs->level->ensure_loaded_around(scx + dx, scy + dy, scz + dz, 0, global.world_files.get());
+                            }
+                        }
+                    }
                 } else {
                     ECS::Object obj { global.ecs.get(), static_cast<EntityId>(spawned_id) };
                     if (!obj.has<TransformComponent>()) {
@@ -425,6 +438,10 @@ void StateGame::update() {
     float dt = static_cast<float>(wnd->frame_delta) / 1'000'000'000.0f;
     dt = std::min<float>(dt, 0.05f);
 
+    if (block_action_cooldown > 0.0f) {
+        block_action_cooldown -= dt;
+    }
+
     float lerp_factor = std::min(20.0f * dt, 1.0f);
     player.transform().position = glm::mix(player.transform().position, target_position, lerp_factor);
 
@@ -442,30 +459,7 @@ void StateGame::update() {
         2, global.world_files.get()
     );
 
-    if (global.lighting) {
-        bool pending_solve = false;
-        for (const auto &[pos, chunk] : global.ecs->level->chunks) {
-            if (chunk && !chunk->lightmap) {
-                global.lighting->on_chunk_loaded(chunk->x, chunk->y, chunk->z);
-                pending_solve = true;
-            }
-        }
-        if (pending_solve) {
-            global.lighting->solve(); 
-        }
-    }
-
     level->decorate_visible(player_positions);
-
-    if (global.lighting) {
-        for (auto &[pos, chunk] : level->chunks) {
-            if (chunk && chunk->lightmap && chunk->modified) {
-                level->meshes.erase(pos);
-                chunk->modified = false;
-            }
-        }
-    }
-
     level->build_meshes(renderer.get(), player_positions);
 
     if (wnd->grabbed) {
@@ -482,9 +476,9 @@ void StateGame::update() {
                 hit->voxel_pos.x + 0.5f, hit->voxel_pos.y + 0.5f, hit->voxel_pos.z + 0.5f,
                 1.005f, 1.005f, 1.005f, 0.0f, 0.0f, 0.0f, 0.5f);
 
-            if (mouse->buttons[GLFW_MOUSE_BUTTON_1].pressed || mouse->buttons[GLFW_MOUSE_BUTTON_2].pressed) {
-                glm::ivec3 target_pos = mouse->buttons[GLFW_MOUSE_BUTTON_1].pressed ? hit->voxel_pos : (hit->voxel_pos + hit->normal);
-                uint8_t target_block = mouse->buttons[GLFW_MOUSE_BUTTON_1].pressed ? 0 : static_cast<uint8_t>(choosen_block);
+            if (block_action_cooldown <= 0.0f && (mouse->buttons[GLFW_MOUSE_BUTTON_1].down || mouse->buttons[GLFW_MOUSE_BUTTON_2].down)) {
+                glm::ivec3 target_pos = mouse->buttons[GLFW_MOUSE_BUTTON_1].down ? hit->voxel_pos : (hit->voxel_pos + hit->normal);
+                uint8_t target_block = mouse->buttons[GLFW_MOUSE_BUTTON_1].down ? 0 : static_cast<uint8_t>(choosen_block);
 
                 Packet packet(PacketType::BlockModify);
                 packet.write<int32_t>(target_pos.x);
@@ -492,6 +486,8 @@ void StateGame::update() {
                 packet.write<int32_t>(target_pos.z);
                 packet.write<uint8_t>(target_block);
                 server_conn->send_packet(packet);
+
+                block_action_cooldown = 0.2f;
             }
         }
     }

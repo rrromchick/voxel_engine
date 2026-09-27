@@ -32,9 +32,14 @@ void Lighting::on_chunk_loaded(int cx, int cy, int cz) {
     if (!global.ecs || !global.ecs->level) return;
 
     auto *chunk = global.ecs->level->get_chunk(cx, cy, cz);
-    auto *chunk_upper = global.ecs->level->get_chunk(cx, cy + 1, cz);
-    auto *chunk_lower = global.ecs->level->get_chunk(cx, cy - 1, cz);
     if (!chunk) return;
+
+    if (!chunk->lightmap) {
+        chunk->lightmap = std::make_unique<Lightmap>();
+    }
+
+    auto *chunk_upper = global.ecs->level->get_chunk(cx, cy + 1, cz);
+    auto *chunk_lower = global.ecs->level->get_chunk(cx, cy - 1, cz);   
 
     if (chunk_lower && chunk_lower->lightmap) {
         for (int z = 0; z < Chunk::DEPTH; z++) {
@@ -147,15 +152,42 @@ void Lighting::on_chunk_loaded(int cx, int cy, int cz) {
         }
     }
 
+    for (int y = 0; y < Chunk::HEIGHT; y++) {
+        for (int z = 0; z < Chunk::DEPTH; z++) {
+            for (int x = 0; x < Chunk::WIDTH; x++) {
+                if (x == 0 || x == Chunk::WIDTH - 1 ||
+                    y == 0 || y == Chunk::HEIGHT - 1 ||
+                    z == 0 || z == Chunk::DEPTH - 1) {
+                    
+                    int gx = x + cx * Chunk::WIDTH;
+                    int gy = y + cy * Chunk::HEIGHT;
+                    int gz = z + cz * Chunk::DEPTH;
+
+                    for (int c = 0; c < 4; c++) {
+                        if (chunk->lightmap && chunk->lightmap->get(x, y, z, c) > 0) {
+                            if (c == 0) solver_r->add(gx, gy, gz);
+                            else if (c == 1) solver_g->add(gx, gy, gz);
+                            else if (c == 2) solver_b->add(gx, gy, gz);
+                            else if (c == 3) solver_s->add(gx, gy, gz);
+                        }
+                    }
+                }
+            }
+        }
+    }
+
     for (unsigned int y = 0; y < Chunk::HEIGHT; y++) {
         for (unsigned int z = 0; z < Chunk::DEPTH; z++) {
             for (unsigned int x = 0; x < Chunk::WIDTH; x++) {
                 auto vox = chunk->voxels[(y * Chunk::DEPTH + z) * Chunk::WIDTH + x];
+                if (vox.id >= global.blocks.size() || !global.blocks[vox.id]) continue;
+
                 auto *block = global.blocks[vox.id].get();
                 if (block && (block->emission[0] || block->emission[1] || block->emission[2])) {
                     int gx = x + cx * Chunk::WIDTH;
                     int gy = y + cy * Chunk::HEIGHT;
                     int gz = z + cz * Chunk::DEPTH;
+
                     solver_r->add(gx, gy, gz, block->emission[0]);
                     solver_g->add(gx, gy, gz, block->emission[1]);
                     solver_b->add(gx, gy, gz, block->emission[2]);
@@ -164,40 +196,10 @@ void Lighting::on_chunk_loaded(int cx, int cy, int cz) {
         }
     }
 
-    for (int y = -1; y <= Chunk::HEIGHT; y++) {
-        for (int z = -1; z <= Chunk::DEPTH; z++) {
-            for (int x = -1; x <= Chunk::WIDTH; x++) {
-                if (!(x == -1 || x == Chunk::WIDTH || y == -1 || y == Chunk::HEIGHT
-                    || z == -1 || z == Chunk::DEPTH)) {
-                    continue;
-                }
-
-                int gx = x + cx * Chunk::WIDTH;
-                int gy = y + cy * Chunk::HEIGHT;
-                int gz = z + cz * Chunk::DEPTH;
-
-                solver_r->add(gx, gy, gz);
-                solver_g->add(gx, gy, gz);
-                solver_b->add(gx, gy, gz);
-                solver_s->add(gx, gy, gz);
-            }
-        }
-    }
-
     solver_r->solve();
     solver_g->solve();
     solver_b->solve();
     solver_s->solve();
-
-    constexpr std::array<std::array<int, 3>, 6> directions = {{
-        { -1, 0, 0 }, { 1, 0, 0 }, { 0, -1, 0 }, { 0, 1, 0 },
-        { 0, 0, -1 }, { 0, 0, 1 }
-    }};
-
-    for (const auto &dir : directions) {
-        auto *other = global.ecs->level->get_chunk(cx + dir[0], cy + dir[1], cz + dir[2]);
-        if (other) other->modified = true;
-    }
 }
 
 void Lighting::on_block_set(int x, int y, int z, int id) {
@@ -264,7 +266,7 @@ void Lighting::on_block_set(int x, int y, int z, int id) {
                 solver_r->add(x, y, z, block->emission[0]);
                 solver_g->add(x, y, z, block->emission[1]);
                 solver_b->add(x, y, z, block->emission[2]);
-                
+
                 solver_r->solve();
                 solver_g->solve();
                 solver_b->solve();

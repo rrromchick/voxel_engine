@@ -132,6 +132,18 @@ void process_client_packet(const std::shared_ptr<Connection> &client, Packet &pa
 
             player_entity.add<PlayerInputComponent>();
 
+            auto spawn_cx = static_cast<int>(std::floor(spawn_pos.x / Chunk::WIDTH));
+            auto spawn_cy = static_cast<int>(std::floor(spawn_pos.y / Chunk::HEIGHT));
+            auto spawn_cz = static_cast<int>(std::floor(spawn_pos.z / Chunk::DEPTH));
+
+            for (int dy = -1; dy <= 1; dy++) {
+                for (int dz = -1; dz <= 1; dz++) {
+                    for (int dx = -1; dx <= 1; dx++) {
+                        global.ecs->level->ensure_loaded_around(spawn_cx + dx, spawn_cy + dy, spawn_cz + dz, 0, global.world_files.get());
+                    }
+                }
+            }
+
             for (const auto &srv : global.network->get_servers()) {
                 for (const auto &other_client : srv->get_clients()) {
                     if (other_client != client && other_client->get_user_data() != nullptr) {
@@ -302,16 +314,12 @@ int main(int argc, char *argv[]) {
     global.ecs->level->decorate_visible(initial_positions);
 
     if (global.lighting) {
-        bool newly_loaded = false;
         for (const auto &[pos, chunk] : global.ecs->level->chunks) {
-            if (chunk && !chunk->lightmap) {
+            if (chunk) {
                 global.lighting->on_chunk_loaded(chunk->x, chunk->y, chunk->z);
-                newly_loaded = true;
             }
         }
-        if (newly_loaded) {
-            global.lighting->solve();
-        }
+        global.lighting->solve();
     }
 
     auto physics_solver = std::make_unique<PhysicsSolver>(glm::vec3(0.0f, -16.0f, 0.0f));
@@ -429,7 +437,7 @@ int main(int argc, char *argv[]) {
                     reinterpret_cast<const uint8_t*>(chunk->voxels.get()), 
                     Chunk::VOLUME 
                 };
-                global.world_files->put(voxel_span, chunk->x, chunk->y, chunk->z);
+                global.world_files->put(voxel_span, pos.x, pos.y, pos.z);
             }
         }
         global.world_files->write();

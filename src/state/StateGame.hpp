@@ -39,6 +39,7 @@ private:
     bool has_spawned = false;
     float cam_x = 0.0f, cam_y = 0.0f;
     float player_speed = 4.0f;
+    float block_action_cooldown = 0.0f;
     int choosen_block = 1;
 
     glm::vec3 target_position { 32.0f, 120.0f, 32.0f };
