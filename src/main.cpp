@@ -388,6 +388,7 @@ int main(int argc, char *argv[]) {
                 global.ecs->level->decorate_visible(player_positions);
             }
 
+            dt = std::min<float>(dt, 0.05f);
             physics_solver->step(dt, 4);
 
             for (std::size_t i = 0; i < global.ecs->size; i++) {
