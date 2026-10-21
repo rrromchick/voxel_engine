@@ -36,6 +36,7 @@ private:
     std::shared_ptr<VoxelModel> player_model;
 
     uint32_t local_player_id = 0;
+    bool show_inventory = false;
     bool has_spawned = false;
     float cam_x = 0.0f, cam_y = 0.0f;
     float player_speed = 4.0f;

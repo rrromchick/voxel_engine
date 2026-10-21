@@ -175,7 +175,7 @@ void StateGame::process_network_packets() {
         switch (packet.get_type()) {
             case PacketType::EntitySpawn: {
                 auto spawned_id = packet.read<uint32_t>();
-                glm::vec3 initial_pos = packet.read_vec3(); 
+                glm::vec3 initial_pos = packet.read_vec3();
                 bool is_local = packet.read<bool>();
 
                 if (spawned_id >= global.ecs->size) {
@@ -188,20 +188,30 @@ void StateGame::process_network_packets() {
 
                     player = Player(global.ecs.get(), static_cast<EntityId>(spawned_id));
                     if (!player.has<TransformComponent>()) player.add<TransformComponent>();
-                    if (!player.has<HitboxComponent>()) {
+                    if (!player.has<TransformComponent>()) {
                         auto &hb = player.add<HitboxComponent>();
                         hb.halfsize = glm::vec3(0.3f, 0.9f, 0.3f);
                     }
+                    
                     if (!player.has<PlayerInputComponent>()) player.add<PlayerInputComponent>();
+                    if (!player.has<InventoryComponent>()) {
+                        auto &inv = player.add<InventoryComponent>();
+
+                        inv.slots[0] = { BlockId::GRASS, 64 };
+                        inv.slots[1] = { BlockId::DIRT, 64 };
+                        inv.slots[2] = { BlockId::STONE, 64 };
+                        inv.slots[3] = { BlockId::LAMP, 16 };
+                        inv.slots[4] = { BlockId::LOG, 32 };
+                    }
                     if (player.has<RenderComponent>()) player.remove<RenderComponent>();
 
-                    target_position = initial_pos; 
+                    target_position = initial_pos;
                     player.transform().position = target_position;
                     player.hitbox().position = target_position + glm::vec3(0.0f, player.hitbox().halfsize.y, 0.0f);
 
-                    int scx = static_cast<int>(std::floor(initial_pos.x / Chunk::WIDTH));
-                    int scy = static_cast<int>(std::floor(initial_pos.y / Chunk::HEIGHT));
-                    int scz = static_cast<int>(std::floor(initial_pos.z / Chunk::DEPTH));
+                    auto scx = static_cast<int>(std::floor(initial_pos.x / Chunk::WIDTH));
+                    auto scy = static_cast<int>(std::floor(initial_pos.y / Chunk::HEIGHT));
+                    auto scz = static_cast<int>(std::floor(initial_pos.z / Chunk::DEPTH));
 
                     for (int dy = -1; dy <= 1; dy++) {
                         for (int dz = -1; dz <= 1; dz++) {
@@ -433,7 +443,25 @@ void StateGame::update() {
     auto *level = global.ecs->level.get();
 
     if (keyboard->keys[GLFW_KEY_ESCAPE].pressed) wnd->set_should_close(true);
-    if (keyboard->keys[GLFW_KEY_TAB].pressed) wnd->set_grabbed(!global.window->grabbed);
+    
+    if (keyboard->keys[GLFW_KEY_E].pressed) {
+        show_inventory = !show_inventory;
+        wnd->set_grabbed(!show_inventory);
+    }
+
+    if (keyboard->keys[GLFW_KEY_TAB].pressed) {
+        wnd->set_grabbed(!global.window->grabbed);
+        if (!global.window->grabbed) show_inventory = false;
+    }
+
+    if (player.has<InventoryComponent>()) {
+        auto &inv = player.get<InventoryComponent>();
+        for (int i = 0; i < static_cast<int>(HOTBAR_SIZE); i++) {
+            if (keyboard->keys[GLFW_KEY_1 + i].pressed) {
+                inv.selected_slot = static_cast<uint8_t>(i);
+            }
+        }
+    }
 
     float dt = static_cast<float>(wnd->frame_delta) / 1'000'000'000.0f;
     dt = std::min<float>(dt, 0.05f);
@@ -462,7 +490,7 @@ void StateGame::update() {
     level->decorate_visible(player_positions);
     level->build_meshes(renderer.get(), player_positions);
 
-    if (wnd->grabbed) {
+    if (wnd->grabbed && !show_inventory) {
         float sensitivity = 1.5f;
         cam_x += (-mouse->delta.x / wnd->get_size().x) * sensitivity;
         cam_y += (-mouse->delta.y / wnd->get_size().y) * sensitivity;
@@ -476,18 +504,42 @@ void StateGame::update() {
                 hit->voxel_pos.x + 0.5f, hit->voxel_pos.y + 0.5f, hit->voxel_pos.z + 0.5f,
                 1.005f, 1.005f, 1.005f, 0.0f, 0.0f, 0.0f, 0.5f);
 
-            if (block_action_cooldown <= 0.0f && (mouse->buttons[GLFW_MOUSE_BUTTON_1].down || mouse->buttons[GLFW_MOUSE_BUTTON_2].down)) {
-                glm::ivec3 target_pos = mouse->buttons[GLFW_MOUSE_BUTTON_1].down ? hit->voxel_pos : (hit->voxel_pos + hit->normal);
-                uint8_t target_block = mouse->buttons[GLFW_MOUSE_BUTTON_1].down ? 0 : static_cast<uint8_t>(choosen_block);
+            if (block_action_cooldown <= 0.0f) {
+                if (mouse->buttons[GLFW_MOUSE_BUTTON_1].down) { 
+                    uint8_t broken_block = hit->block_id;
 
-                Packet packet(PacketType::BlockModify);
-                packet.write<int32_t>(target_pos.x);
-                packet.write<int32_t>(target_pos.y);
-                packet.write<int32_t>(target_pos.z);
-                packet.write<uint8_t>(target_block);
-                server_conn->send_packet(packet);
+                    Packet packet(PacketType::BlockModify);
+                    packet.write<int32_t>(hit->voxel_pos.x);
+                    packet.write<int32_t>(hit->voxel_pos.y);
+                    packet.write<int32_t>(hit->voxel_pos.z);
+                    packet.write<uint8_t>(0); // AIR
+                    server_conn->send_packet(packet);
 
-                block_action_cooldown = 0.2f;
+                    if (player.has<InventoryComponent>()) {
+                        player.get<InventoryComponent>().add_item(broken_block, 1);
+                    }
+
+                    block_action_cooldown = 0.2f;
+                } else if (mouse->buttons[GLFW_MOUSE_BUTTON_2].down) { 
+                    if (player.has<InventoryComponent>()) {
+                        auto &inv = player.get<InventoryComponent>();
+                        const auto &active = inv.active_item();
+
+                        if (active.id != 0 && active.count > 0) {
+                            glm::ivec3 target_pos = hit->voxel_pos + hit->normal;
+
+                            Packet packet(PacketType::BlockModify);
+                            packet.write<int32_t>(target_pos.x);
+                            packet.write<int32_t>(target_pos.y);
+                            packet.write<int32_t>(target_pos.z);
+                            packet.write<uint8_t>(active.id);
+                            server_conn->send_packet(packet);
+
+                            inv.consume_active_item();
+                            block_action_cooldown = 0.2f;
+                        }
+                    }
+                }
             }
         }
     }
@@ -498,29 +550,139 @@ void StateGame::render_ui() {
     ImGui_ImplGlfw_NewFrame();
     ImGui::NewFrame();
 
-    ImGui::SetNextWindowPos(ImVec2(10, 10), ImGuiCond_FirstUseEver);
-    ImGui::SetNextWindowSize(ImVec2(200, 300), ImGuiCond_FirstUseEver);
+    ImGuiIO &io = ImGui::GetIO();
 
-    ImGui::Begin("Game Options");
+    if (player.has<InventoryComponent>()) {
+        auto &inv = player.get<InventoryComponent>();
 
-    ImGui::Text("Selected Block ID: %d", choosen_block);
-    ImGui::Separator();
+        float hotbar_width = HOTBAR_SIZE * 48.0f + 20.0f;
+        ImGui::SetNextWindowPos(ImVec2((io.DisplaySize.x - hotbar_width) * 0.5f, io.DisplaySize.y - 65.0f), ImGuiCond_Always);
+        ImGui::SetNextWindowSize(ImVec2(hotbar_width, 58.0f));
 
-    if (ImGui::BeginListBox("Select Block", ImVec2(-FLT_MIN, 10 * ImGui::GetTextLineHeightWithSpacing()))) {
-        for (int i = 0; i < static_cast<int>(block_id_to_str.size()); i++) {
-            const bool is_selected = (choosen_block == i);
+        ImGuiWindowFlags hud_flags = ImGuiWindowFlags_NoDecoration | 
+                                     ImGuiWindowFlags_AlwaysAutoResize | 
+                                     ImGuiWindowFlags_NoMove | 
+                                     ImGuiWindowFlags_NoSavedSettings;
 
-            if (ImGui::Selectable(block_id_to_str[i].c_str(), is_selected)) {
-                choosen_block = i;
-            }
+        if (ImGui::Begin("Hotbar HUD", nullptr, hud_flags)) {
+            for (std::size_t i = 0; i < HOTBAR_SIZE; ++i) {
+                if (i > 0) ImGui::SameLine();
 
-            if (is_selected) {
-                ImGui::SetItemDefaultFocus();
+                ImGui::PushID(static_cast<int>(i));
+
+                bool is_selected = (inv.selected_slot == i);
+                if (is_selected) {
+                    ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.4f, 0.6f, 0.8f, 0.8f));
+                    ImGui::PushStyleColor(ImGuiCol_Border, ImVec4(1.0f, 0.8f, 0.2f, 1.0f));
+                    ImGui::PushStyleVar(ImGuiStyleVar_FrameBorderSize, 2.0f);
+                }
+
+                const auto &slot = inv.slots[i];
+                std::string label = (slot.id != 0) ? std::to_string(slot.count) : "";
+
+                if (ImGui::Button(label.c_str(), ImVec2(40.0f, 40.0f))) {
+                    inv.selected_slot = static_cast<uint8_t>(i);
+                }
+
+                if (ImGui::IsItemHovered() && slot.id != 0) {
+                    ImGui::SetTooltip("Item ID: %d\nCount: %d", slot.id, slot.count);
+                }
+
+                if (is_selected) {
+                    ImGui::PopStyleVar();
+                    ImGui::PopStyleColor(2);
+                }
+
+                ImGui::PopID();
             }
         }
-        ImGui::EndListBox();
+        ImGui::End();
+
+        if (show_inventory) {
+            static int dragged_slot = -1;
+
+            ImGui::SetNextWindowPos(ImVec2(io.DisplaySize.x * 0.5f - 220.0f, io.DisplaySize.y * 0.5f - 180.0f), ImGuiCond_FirstUseEver);
+            ImGui::SetNextWindowSize(ImVec2(440.0f, 320.0f));
+
+            if (ImGui::Begin("Player Inventory", nullptr, ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoCollapse)) {
+                ImGui::Text("Main Inventory");
+                ImGui::Separator();
+
+                constexpr int COLUMNS = 9;
+                for (std::size_t i = HOTBAR_SIZE; i < INVENTORY_SIZE; ++i) {
+                    int grid_index = static_cast<int>(i - HOTBAR_SIZE);
+                    if (grid_index % COLUMNS != 0) ImGui::SameLine();
+
+                    ImGui::PushID(static_cast<int>(i));
+
+                    const auto &slot = inv.slots[i];
+                    std::string label = (slot.id != 0) ? std::to_string(slot.count) : "";
+
+                    bool is_dragged = (dragged_slot == static_cast<int>(i));
+                    if (is_dragged) {
+                        ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.8f, 0.3f, 0.3f, 0.8f));
+                    }
+
+                    if (ImGui::Button(label.c_str(), ImVec2(40.0f, 40.0f))) {
+                        if (dragged_slot == -1) {
+                            if (slot.id != 0) dragged_slot = static_cast<int>(i);
+                        } else {
+                            inv.swap_slots(static_cast<std::size_t>(dragged_slot), i);
+                            dragged_slot = -1;
+                        }
+                    }
+
+                    if (is_dragged) {
+                        ImGui::PopStyleColor();
+                    }
+
+                    if (ImGui::IsItemHovered() && slot.id != 0) {
+                        ImGui::SetTooltip("Item ID: %d\nCount: %d", slot.id, slot.count);
+                    }
+
+                    ImGui::PopID();
+                }
+
+                ImGui::Spacing();
+                ImGui::Text("Hotbar Quick-Move");
+                ImGui::Separator();
+
+                for (std::size_t i = 0; i < HOTBAR_SIZE; ++i) {
+                    if (i > 0) ImGui::SameLine();
+
+                    ImGui::PushID(static_cast<int>(1000 + i));
+
+                    const auto &slot = inv.slots[i];
+                    std::string label = (slot.id != 0) ? std::to_string(slot.count) : "";
+
+                    bool is_dragged = (dragged_slot == static_cast<int>(i));
+                    if (is_dragged) {
+                        ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.8f, 0.3f, 0.3f, 0.8f));
+                    }
+
+                    if (ImGui::Button(label.c_str(), ImVec2(40.0f, 40.0f))) {
+                        if (dragged_slot == -1) {
+                            if (slot.id != 0) dragged_slot = static_cast<int>(i);
+                        } else {
+                            inv.swap_slots(static_cast<std::size_t>(dragged_slot), i);
+                            dragged_slot = -1;
+                        }
+                    }
+
+                    if (is_dragged) {
+                        ImGui::PopStyleColor();
+                    }
+
+                    ImGui::PopID();
+                }
+
+                if (dragged_slot != -1) {
+                    ImGui::TextColored(ImVec4(1.0f, 0.8f, 0.2f, 1.0f), "Slot %d selected. Click another slot to swap.", dragged_slot);
+                }
+            }
+            ImGui::End();
+        }
     }
-    ImGui::End();
 
     ImGui::SetNextWindowPos(ImVec2(10.0f, 350.0f), ImGuiCond_Always);
     ImGui::SetNextWindowBgAlpha(0.35f); 
@@ -537,7 +699,6 @@ void StateGame::render_ui() {
         ImGui::Text("FPS: %llu", global.window->fps);
         ImGui::Text("TPS: %llu", global.window->tps);
     }
-
     ImGui::End();
 
     ImGui::Render();

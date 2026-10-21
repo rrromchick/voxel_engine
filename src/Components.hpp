@@ -2,6 +2,7 @@
 
 #include "ECS.hpp"
 #include "VoxelModel.hpp"
+#include "WorldGenerator.hpp"
 #include <glm/glm.hpp>
 #include <memory>
 
@@ -68,9 +69,79 @@ struct RenderComponent : public ECS::Component<RenderComponent> {
 
 struct LocalPlayerComponent : public ECS::Component<LocalPlayerComponent> {};
 
+constexpr auto INVENTORY_SIZE = 36;
+constexpr auto HOTBAR_SIZE = 9;
+
+struct ItemStack {
+    uint8_t id;
+    uint8_t count;
+};
+
+struct InventoryComponent : public ECS::Component<InventoryComponent> {
+    std::array<ItemStack, INVENTORY_SIZE> slots {};
+    uint8_t selected_slot = 0;
+
+    InventoryComponent() = default;
+
+    [[nodiscard]] ItemStack &active_item() {
+        return slots[selected_slot % HOTBAR_SIZE];
+    }
+
+    [[nodiscard]] const ItemStack &active_item() const {
+        return slots[selected_slot % HOTBAR_SIZE];
+    }
+
+    bool consume_active_item() {
+        auto &active = active_item();
+        if (active.id != 0 && active.count > 0) {
+            active.count--;
+            if (active.count == 0) {
+                active.id = 0;
+            }
+            return true;
+        }
+        return false;
+    }
+
+    bool add_item(uint8_t block_id, uint8_t amount = 1) {
+        if (block_id == 0 || amount == 0) return false;
+
+        for (auto &slot : slots) {
+            if (slot.id == block_id && slot.count < 64) {
+                uint8_t space = 64 - slot.count;
+                uint8_t to_add = std::min(amount, space);
+                slot.count += to_add;
+                amount -= to_add;
+
+                if (amount == 0) return true;
+            }
+        }
+
+        for (auto &slot : slots) {
+            if (slot.id == 0 || slot.count == 0) {
+                slot.id = block_id;
+                uint8_t to_add = std::min<uint8_t>(amount, 64);
+                slot.count = to_add;
+                amount -= to_add;
+
+                if (amount == 0) return true;
+            }
+        }
+
+        return amount == 0;
+    }
+
+    void swap_slots(std::size_t slot_a, std::size_t slot_b) {
+        if (slot_a < INVENTORY_SIZE && slot_b < INVENTORY_SIZE) {
+            std::swap(slots[slot_a], slots[slot_b]);
+        }
+    }
+};
+
 inline void register_shared_components(ECS &ecs) {
     ecs.register_type<TransformComponent>();
     ecs.register_type<NetworkComponent>();
+    ecs.register_type<InventoryComponent>();
 }
 
 inline void register_server_components(ECS &ecs) {
