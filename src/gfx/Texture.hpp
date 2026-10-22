@@ -19,6 +19,7 @@ struct Texture {
 
 	inline void bind() const { glBindTexture(GL_TEXTURE_2D, handle); }
 	inline glm::ivec2 get_size() const { return size; }
+	inline GLuint get_handle() const { return handle; }
 
 private:
 	void load_pixels(const uint8_t *pixels, std::size_t width, std::size_t height);

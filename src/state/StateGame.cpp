@@ -545,7 +545,94 @@ void StateGame::update() {
     }
 }
 
+struct ImUV {
+    ImVec2 uv0;
+    ImVec2 uv1;
+};
+
+static ImUV get_block_gui_uvs(uint32_t tex_idx) {
+    constexpr float UV_TILE_SIZE = 1.0f / 16.0f;
+
+    uint32_t col = tex_idx % 16;
+    uint32_t row = tex_idx / 16;
+
+    float u0 = col * UV_TILE_SIZE;
+    float u1 = (col + 1) * UV_TILE_SIZE;
+
+    float v0 = 1.0f - row * UV_TILE_SIZE;
+    float v1 = 1.0f - (row + 1) * UV_TILE_SIZE;
+
+    return { ImVec2(u0, v0), ImVec2(u1, v1) };
+}
+
+static bool draw_inventory_slot(
+    const char* str_id,
+    const ItemStack &slot,
+    bool is_selected,
+    ImTextureID atlas_tex_id
+) {
+    ImGui::PushID(str_id);
+
+    if (is_selected) {
+        ImGui::PushStyleColor(ImGuiCol_Border, ImVec4(1.0f, 0.8f, 0.2f, 1.0f));
+        ImGui::PushStyleVar(ImGuiStyleVar_FrameBorderSize, 2.0f);
+    }
+
+    ImVec2 image_size(32.0f, 32.0f);
+    bool clicked = false;
+
+    if (slot.id != 0 && global.blocks[slot.id] != nullptr) {
+        uint32_t tex_idx = global.blocks[slot.id]->texture_faces[0];
+        ImUV uvs = get_block_gui_uvs(tex_idx);
+
+        clicked = ImGui::ImageButton(
+            str_id,
+            atlas_tex_id,
+            image_size,
+            uvs.uv0,
+            uvs.uv1,
+            ImVec4(0.15f, 0.15f, 0.15f, 0.6f), 
+            ImVec4(1.0f, 1.0f, 1.0f, 1.0f)   
+        );
+
+        if (slot.count > 1) {
+            ImVec2 rect_max = ImGui::GetItemRectMax();
+            std::string count_str = std::to_string(slot.count);
+            ImVec2 text_size = ImGui::CalcTextSize(count_str.c_str());
+            ImVec2 text_pos = ImVec2(rect_max.x - text_size.x - 4.0f, rect_max.y - text_size.y - 2.0f);
+
+            ImGui::GetWindowDrawList()->AddText(
+                ImVec2(text_pos.x + 1.0f, text_pos.y + 1.0f), 
+                IM_COL32(0, 0, 0, 255), 
+                count_str.c_str()
+            );
+            ImGui::GetWindowDrawList()->AddText(
+                text_pos, 
+                IM_COL32(255, 255, 255, 255), 
+                count_str.c_str()
+            );
+        }
+    } else {
+        clicked = ImGui::Button("", ImVec2(40.0f, 40.0f));
+    }
+
+    if (ImGui::IsItemHovered() && slot.id != 0 && global.blocks[slot.id] != nullptr) {
+        ImGui::SetTooltip("Block ID: %d\nCount: %d", slot.id, slot.count);
+    }
+
+    if (is_selected) {
+        ImGui::PopStyleVar();
+        ImGui::PopStyleColor();
+    }
+
+    ImGui::PopID();
+    return clicked;
+}
+
 void StateGame::render_ui() {
+    glUseProgram(0);
+    glActiveTexture(GL_TEXTURE0);
+
     ImGui_ImplOpenGL3_NewFrame();
     ImGui_ImplGlfw_NewFrame();
     ImGui::NewFrame();
@@ -555,9 +642,14 @@ void StateGame::render_ui() {
     if (player.has<InventoryComponent>()) {
         auto &inv = player.get<InventoryComponent>();
 
-        float hotbar_width = HOTBAR_SIZE * 48.0f + 20.0f;
-        ImGui::SetNextWindowPos(ImVec2((io.DisplaySize.x - hotbar_width) * 0.5f, io.DisplaySize.y - 65.0f), ImGuiCond_Always);
-        ImGui::SetNextWindowSize(ImVec2(hotbar_width, 58.0f));
+        ImTextureID atlas_tex_id = 0;
+        if (global.texture) {
+            atlas_tex_id = (ImTextureID)(intptr_t)global.texture->get_handle();
+        }
+
+        float hotbar_width = HOTBAR_SIZE * 48.0f + 30.0f;
+        ImGui::SetNextWindowPos(ImVec2((io.DisplaySize.x - hotbar_width) * 0.5f, io.DisplaySize.y - 70.0f), ImGuiCond_Always);
+        ImGui::SetNextWindowSize(ImVec2(hotbar_width, 64.0f));
 
         ImGuiWindowFlags hud_flags = ImGuiWindowFlags_NoDecoration | 
                                      ImGuiWindowFlags_AlwaysAutoResize | 
@@ -568,32 +660,10 @@ void StateGame::render_ui() {
             for (std::size_t i = 0; i < HOTBAR_SIZE; ++i) {
                 if (i > 0) ImGui::SameLine();
 
-                ImGui::PushID(static_cast<int>(i));
-
-                bool is_selected = (inv.selected_slot == i);
-                if (is_selected) {
-                    ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.4f, 0.6f, 0.8f, 0.8f));
-                    ImGui::PushStyleColor(ImGuiCol_Border, ImVec4(1.0f, 0.8f, 0.2f, 1.0f));
-                    ImGui::PushStyleVar(ImGuiStyleVar_FrameBorderSize, 2.0f);
-                }
-
-                const auto &slot = inv.slots[i];
-                std::string label = (slot.id != 0) ? std::to_string(slot.count) : "";
-
-                if (ImGui::Button(label.c_str(), ImVec2(40.0f, 40.0f))) {
+                std::string slot_id = "hb_" + std::to_string(i);
+                if (draw_inventory_slot(slot_id.c_str(), inv.slots[i], inv.selected_slot == i, atlas_tex_id)) {
                     inv.selected_slot = static_cast<uint8_t>(i);
                 }
-
-                if (ImGui::IsItemHovered() && slot.id != 0) {
-                    ImGui::SetTooltip("Item ID: %d\nCount: %d", slot.id, slot.count);
-                }
-
-                if (is_selected) {
-                    ImGui::PopStyleVar();
-                    ImGui::PopStyleColor(2);
-                }
-
-                ImGui::PopID();
             }
         }
         ImGui::End();
@@ -601,8 +671,8 @@ void StateGame::render_ui() {
         if (show_inventory) {
             static int dragged_slot = -1;
 
-            ImGui::SetNextWindowPos(ImVec2(io.DisplaySize.x * 0.5f - 220.0f, io.DisplaySize.y * 0.5f - 180.0f), ImGuiCond_FirstUseEver);
-            ImGui::SetNextWindowSize(ImVec2(440.0f, 320.0f));
+            ImGui::SetNextWindowPos(ImVec2((io.DisplaySize.x - 490.0f) * 0.5f, (io.DisplaySize.y - 360.0f) * 0.5f), ImGuiCond_Always);
+            ImGui::SetNextWindowSize(ImVec2(490.0f, 360.0f));
 
             if (ImGui::Begin("Player Inventory", nullptr, ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoCollapse)) {
                 ImGui::Text("Main Inventory");
@@ -613,34 +683,17 @@ void StateGame::render_ui() {
                     int grid_index = static_cast<int>(i - HOTBAR_SIZE);
                     if (grid_index % COLUMNS != 0) ImGui::SameLine();
 
-                    ImGui::PushID(static_cast<int>(i));
-
-                    const auto &slot = inv.slots[i];
-                    std::string label = (slot.id != 0) ? std::to_string(slot.count) : "";
-
+                    std::string slot_id = "inv_" + std::to_string(i);
                     bool is_dragged = (dragged_slot == static_cast<int>(i));
-                    if (is_dragged) {
-                        ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.8f, 0.3f, 0.3f, 0.8f));
-                    }
 
-                    if (ImGui::Button(label.c_str(), ImVec2(40.0f, 40.0f))) {
+                    if (draw_inventory_slot(slot_id.c_str(), inv.slots[i], is_dragged, atlas_tex_id)) {
                         if (dragged_slot == -1) {
-                            if (slot.id != 0) dragged_slot = static_cast<int>(i);
+                            if (inv.slots[i].id != 0) dragged_slot = static_cast<int>(i);
                         } else {
                             inv.swap_slots(static_cast<std::size_t>(dragged_slot), i);
                             dragged_slot = -1;
                         }
                     }
-
-                    if (is_dragged) {
-                        ImGui::PopStyleColor();
-                    }
-
-                    if (ImGui::IsItemHovered() && slot.id != 0) {
-                        ImGui::SetTooltip("Item ID: %d\nCount: %d", slot.id, slot.count);
-                    }
-
-                    ImGui::PopID();
                 }
 
                 ImGui::Spacing();
@@ -650,30 +703,17 @@ void StateGame::render_ui() {
                 for (std::size_t i = 0; i < HOTBAR_SIZE; ++i) {
                     if (i > 0) ImGui::SameLine();
 
-                    ImGui::PushID(static_cast<int>(1000 + i));
-
-                    const auto &slot = inv.slots[i];
-                    std::string label = (slot.id != 0) ? std::to_string(slot.count) : "";
-
+                    std::string slot_id = "inv_hb_" + std::to_string(i);
                     bool is_dragged = (dragged_slot == static_cast<int>(i));
-                    if (is_dragged) {
-                        ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.8f, 0.3f, 0.3f, 0.8f));
-                    }
 
-                    if (ImGui::Button(label.c_str(), ImVec2(40.0f, 40.0f))) {
+                    if (draw_inventory_slot(slot_id.c_str(), inv.slots[i], is_dragged, atlas_tex_id)) {
                         if (dragged_slot == -1) {
-                            if (slot.id != 0) dragged_slot = static_cast<int>(i);
+                            if (inv.slots[i].id != 0) dragged_slot = static_cast<int>(i);
                         } else {
                             inv.swap_slots(static_cast<std::size_t>(dragged_slot), i);
                             dragged_slot = -1;
                         }
                     }
-
-                    if (is_dragged) {
-                        ImGui::PopStyleColor();
-                    }
-
-                    ImGui::PopID();
                 }
 
                 if (dragged_slot != -1) {
