@@ -104,6 +104,9 @@ static bool init_assets() {
     global.lines_shader = Shader::load("res/shaders/lines.glslv", "res/shaders/lines.glslf");
     if (!global.lines_shader) return false;
 
+    global.entity_shader = Shader::load("res/shaders/entity.glslv", "res/shaders/main.glslf");
+    if (!global.entity_shader) return false;
+
     global.texture = std::make_unique<Texture>("res/images/texture_atlas.png");
     return global.texture != nullptr;
 }
@@ -346,27 +349,45 @@ void StateGame::render() {
         global.shader->uniform_matrix("u_model", model);
         mesh_it->second->draw(GL_TRIANGLES);
     }
+    
+    global.entity_shader->use();
+    global.entity_shader->uniform_matrix("u_projview", camera->get_projection() * camera->get_view());
+    global.entity_shader->uniform_1f("u_gamma", 2.2f);
+    global.entity_shader->uniform_3f("u_sky_light_color", 0.2f, 0.3f, 0.4f);
 
     for (std::size_t i = 0; i < global.ecs->size; i++) {
         auto current_id = static_cast<EntityId>(i);
         if (has_spawned && current_id == local_player_id) continue;
 
         ECS::Object obj { global.ecs.get(), current_id };
-        if (!obj.is_valid()) continue; 
-
-        if (!obj.has<RenderComponent>() || !obj.has<TransformComponent>()) continue;
+        if (!obj.is_valid() || !obj.has<RenderComponent>() || !obj.has<TransformComponent>()) continue;
 
         auto &render_comp = obj.get<RenderComponent>();
         auto &trans_comp = obj.get<TransformComponent>();
 
-        if (!level->get_chunk_by_voxel(
-                static_cast<int>(std::floor(trans_comp.position.x)),
-                static_cast<int>(std::floor(trans_comp.position.y)),
-                static_cast<int>(std::floor(trans_comp.position.z)))) {
-            continue; 
+        if (!render_comp.visible || !render_comp.model) continue;
+
+        int px = static_cast<int>(std::floor(trans_comp.position.x));
+        int py = static_cast<int>(std::floor(trans_comp.position.y + 0.5f));
+        int pz = static_cast<int>(std::floor(trans_comp.position.z));
+
+        glm::vec3 block_light(0.0f);
+        float sky_light = 1.0f;
+
+        auto *chunk = level->get_chunk_by_voxel(px, py, pz);
+        if (chunk && chunk->lightmap) {
+            int lx = (px % Chunk::WIDTH + Chunk::WIDTH) % Chunk::WIDTH;
+            int ly = (py % Chunk::HEIGHT + Chunk::HEIGHT) % Chunk::HEIGHT;
+            int lz = (pz % Chunk::DEPTH + Chunk::DEPTH) % Chunk::DEPTH;
+
+            block_light.r = chunk->lightmap->get(lx, ly, lz, 0) / 15.0f;
+            block_light.g = chunk->lightmap->get(lx, ly, lz, 1) / 15.0f;
+            block_light.b = chunk->lightmap->get(lx, ly, lz, 2) / 15.0f;
+            sky_light     = chunk->lightmap->get(lx, ly, lz, 3) / 15.0f;
         }
 
-        if (!render_comp.visible || !render_comp.model) continue;
+        global.entity_shader->uniform_3f("u_env_block_light", block_light.r, block_light.g, block_light.b);
+        global.entity_shader->uniform_1f("u_env_sky_light", sky_light);
 
         glm::vec3 aabb_size = render_comp.model->tight_aabb.get_size();
         float scale_factor = 1.8f / std::max(aabb_size.y, 0.001f);
@@ -382,7 +403,7 @@ void StateGame::render() {
         model_mat = glm::scale(model_mat, glm::vec3(scale_factor));
         model_mat = glm::translate(model_mat, -feet_pivot); 
 
-        global.shader->uniform_matrix("u_model", model_mat);
+        global.entity_shader->uniform_matrix("u_model", model_mat);
         render_comp.model->draw();
     }
 
@@ -512,7 +533,7 @@ void StateGame::update() {
                     packet.write<int32_t>(hit->voxel_pos.x);
                     packet.write<int32_t>(hit->voxel_pos.y);
                     packet.write<int32_t>(hit->voxel_pos.z);
-                    packet.write<uint8_t>(0); // AIR
+                    packet.write<uint8_t>(0);
                     server_conn->send_packet(packet);
 
                     if (player.has<InventoryComponent>()) {

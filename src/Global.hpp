@@ -22,7 +22,7 @@ struct Global {
     std::unique_ptr<Lighting> lighting;
     std::unique_ptr<WorldGenerator> generator;
     std::unique_ptr<WorldFiles> world_files;
-    std::unique_ptr<Shader> shader, lines_shader, crosshair_shader;
+    std::unique_ptr<Shader> shader, lines_shader, crosshair_shader, entity_shader;
     std::unique_ptr<Texture> texture;
     std::unique_ptr<LineBatch> line_batch;
     std::unique_ptr<Mesh> crosshair;
