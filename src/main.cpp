@@ -106,8 +106,9 @@ void process_client_disconnect(const std::shared_ptr<Connection> &client) {
 void resolve_entity_collisions(ECS &ecs) {
     auto is_solid = [&](const glm::vec3 &pos, const glm::vec3 &halfsize) {
         if (!ecs.level) return false;
-        glm::vec3 min_b = pos - halfsize;
-        glm::vec3 max_b = pos + halfsize;
+        
+        glm::vec3 min_b = pos - halfsize + glm::vec3(0.05f);
+        glm::vec3 max_b = pos + halfsize - glm::vec3(0.05f);
 
         int x1 = static_cast<int>(std::floor(min_b.x));
         int x2 = static_cast<int>(std::floor(max_b.x));
@@ -153,7 +154,7 @@ void resolve_entity_collisions(ECS &ecs) {
             if (overlap_x && overlap_y && overlap_z) {
                 float overlap_depth_x = std::min(max_a.x - min_b.x, max_b.x - min_a.x);
                 float overlap_depth_y = std::min(max_a.y - min_b.y, max_b.y - min_a.y);
-                float overlap_depth_z = std::min(max_a.z - min_b.z, max_b.z - min_a.z);
+                float overlap_depth_z = std::min(max_a.z - min_b.z, max_a.z - min_b.z);
 
                 if (overlap_depth_y < overlap_depth_x && overlap_depth_y < overlap_depth_z) {
                     float push = overlap_depth_y * 0.5f;
@@ -169,9 +170,9 @@ void resolve_entity_collisions(ECS &ecs) {
                             hb_b.position = test_pos_b;
                             hb_a.velocity.y = std::min(hb_a.velocity.y, 0.0f);
                             hb_b.grounded = true;
-                        } else if (!solid_a) {
+                        } else if (!solid_a && !is_solid(hb_b.position, hb_b.halfsize)) {
                             hb_a.position.y -= overlap_depth_y;
-                        } else if (!solid_b) {
+                        } else if (!solid_b && !is_solid(hb_a.position, hb_a.halfsize)) {
                             hb_b.position.y += overlap_depth_y;
                         }
                     } else {
@@ -186,9 +187,9 @@ void resolve_entity_collisions(ECS &ecs) {
                             hb_b.position = test_pos_b;
                             hb_b.velocity.y = std::min(hb_b.velocity.y, 0.0f);
                             hb_a.grounded = true;
-                        } else if (!solid_a) {
+                        } else if (!solid_a && !is_solid(hb_b.position, hb_b.halfsize)) {
                             hb_a.position.y += overlap_depth_y;
-                        } else if (!solid_b) {
+                        } else if (!solid_b && !is_solid(hb_a.position, hb_a.halfsize)) {
                             hb_b.position.y -= overlap_depth_y;
                         }
                     }
@@ -204,9 +205,9 @@ void resolve_entity_collisions(ECS &ecs) {
                         if (!solid_a && !solid_b) {
                             hb_a.position = test_pos_a;
                             hb_b.position = test_pos_b;
-                        } else if (!solid_a) {
+                        } else if (!solid_a && !is_solid(hb_b.position, hb_b.halfsize)) {
                             hb_a.position.x -= overlap_depth_x;
-                        } else if (!solid_b) {
+                        } else if (!solid_b && !is_solid(hb_a.position, hb_a.halfsize)) {
                             hb_b.position.x += overlap_depth_x;
                         }
                     } else {
@@ -219,9 +220,9 @@ void resolve_entity_collisions(ECS &ecs) {
                         if (!solid_a && !solid_b) {
                             hb_a.position = test_pos_a;
                             hb_b.position = test_pos_b;
-                        } else if (!solid_a) {
+                        } else if (!solid_a && !is_solid(hb_b.position, hb_b.halfsize)) {
                             hb_a.position.x += overlap_depth_x;
-                        } else if (!solid_b) {
+                        } else if (!solid_b && !is_solid(hb_a.position, hb_a.halfsize)) {
                             hb_b.position.x -= overlap_depth_x;
                         }
                     }
@@ -237,9 +238,9 @@ void resolve_entity_collisions(ECS &ecs) {
                         if (!solid_a && !solid_b) {
                             hb_a.position = test_pos_a;
                             hb_b.position = test_pos_b;
-                        } else if (!solid_a) {
+                        } else if (!solid_a && !is_solid(hb_b.position, hb_b.halfsize)) {
                             hb_a.position.z -= overlap_depth_z;
-                        } else if (!solid_b) {
+                        } else if (!solid_b && !is_solid(hb_a.position, hb_a.halfsize)) {
                             hb_b.position.z += overlap_depth_z;
                         }
                     } else {
@@ -252,9 +253,9 @@ void resolve_entity_collisions(ECS &ecs) {
                         if (!solid_a && !solid_b) {
                             hb_a.position = test_pos_a;
                             hb_b.position = test_pos_b;
-                        } else if (!solid_a) {
+                        } else if (!solid_a && !is_solid(hb_b.position, hb_b.halfsize)) {
                             hb_a.position.z += overlap_depth_z;
-                        } else if (!solid_b) {
+                        } else if (!solid_b && !is_solid(hb_a.position, hb_a.halfsize)) {
                             hb_b.position.z -= overlap_depth_z;
                         }
                     }
