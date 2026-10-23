@@ -103,6 +103,167 @@ void process_client_disconnect(const std::shared_ptr<Connection> &client) {
     broadcast_packet_all(despawn_packet);
 }
 
+void resolve_entity_collisions(ECS &ecs) {
+    auto is_solid = [&](const glm::vec3 &pos, const glm::vec3 &halfsize) {
+        if (!ecs.level) return false;
+        glm::vec3 min_b = pos - halfsize;
+        glm::vec3 max_b = pos + halfsize;
+
+        int x1 = static_cast<int>(std::floor(min_b.x));
+        int x2 = static_cast<int>(std::floor(max_b.x));
+        int y1 = static_cast<int>(std::floor(min_b.y));
+        int y2 = static_cast<int>(std::floor(max_b.y));
+        int z1 = static_cast<int>(std::floor(min_b.z));
+        int z2 = static_cast<int>(std::floor(max_b.z));
+
+        for (int x = x1; x <= x2; x++) {
+            for (int y = y1; y <= y2; y++) {
+                for (int z = z1; z <= z2; z++) {
+                    uint8_t block_id = ecs.level->get_voxel_id(x, y, z);
+                    if (block_id != 0 && global.blocks[block_id] && global.blocks[block_id]->obstacle) {
+                        return true;
+                    }
+                }
+            }
+        }
+        return false;
+    };
+
+    for (std::size_t i = 0; i < ecs.size; i++) {
+        ECS::Object obj_a { &ecs, static_cast<EntityId>(i) };
+        if (!obj_a.is_valid() || !obj_a.has<HitboxComponent>() || !obj_a.has<TransformComponent>()) continue;
+
+        auto &hb_a = obj_a.get<HitboxComponent>();
+
+        for (std::size_t j = i + 1; j < ecs.size; j++) {
+            ECS::Object obj_b { &ecs, static_cast<EntityId>(j) };
+            if (!obj_b.is_valid() || !obj_b.has<HitboxComponent>() || !obj_b.has<TransformComponent>()) continue;
+            
+            auto &hb_b = obj_b.get<HitboxComponent>();
+
+            glm::vec3 min_a = hb_a.position - hb_a.halfsize;
+            glm::vec3 max_a = hb_a.position + hb_a.halfsize;
+            glm::vec3 min_b = hb_b.position - hb_b.halfsize;
+            glm::vec3 max_b = hb_b.position + hb_b.halfsize;
+
+            bool overlap_x = (min_a.x < max_b.x) && (max_a.x > min_b.x);
+            bool overlap_y = (min_a.y < max_b.y) && (max_a.y > min_b.y);
+            bool overlap_z = (min_a.z < max_b.z) && (max_a.z > min_b.z);
+
+            if (overlap_x && overlap_y && overlap_z) {
+                float overlap_depth_x = std::min(max_a.x - min_b.x, max_b.x - min_a.x);
+                float overlap_depth_y = std::min(max_a.y - min_b.y, max_b.y - min_a.y);
+                float overlap_depth_z = std::min(max_a.z - min_b.z, max_b.z - min_a.z);
+
+                if (overlap_depth_y < overlap_depth_x && overlap_depth_y < overlap_depth_z) {
+                    float push = overlap_depth_y * 0.5f;
+                    if (hb_a.position.y < hb_b.position.y) {
+                        glm::vec3 test_pos_a = hb_a.position; test_pos_a.y -= push;
+                        glm::vec3 test_pos_b = hb_b.position; test_pos_b.y += push;
+
+                        bool solid_a = is_solid(test_pos_a, hb_a.halfsize);
+                        bool solid_b = is_solid(test_pos_b, hb_b.halfsize);
+
+                        if (!solid_a && !solid_b) {
+                            hb_a.position = test_pos_a;
+                            hb_b.position = test_pos_b;
+                            hb_a.velocity.y = std::min(hb_a.velocity.y, 0.0f);
+                            hb_b.grounded = true;
+                        } else if (!solid_a) {
+                            hb_a.position.y -= overlap_depth_y;
+                        } else if (!solid_b) {
+                            hb_b.position.y += overlap_depth_y;
+                        }
+                    } else {
+                        glm::vec3 test_pos_a = hb_a.position; test_pos_a.y += push;
+                        glm::vec3 test_pos_b = hb_b.position; test_pos_b.y -= push;
+
+                        bool solid_a = is_solid(test_pos_a, hb_a.halfsize);
+                        bool solid_b = is_solid(test_pos_b, hb_b.halfsize);
+
+                        if (!solid_a && !solid_b) {
+                            hb_a.position = test_pos_a;
+                            hb_b.position = test_pos_b;
+                            hb_b.velocity.y = std::min(hb_b.velocity.y, 0.0f);
+                            hb_a.grounded = true;
+                        } else if (!solid_a) {
+                            hb_a.position.y += overlap_depth_y;
+                        } else if (!solid_b) {
+                            hb_b.position.y -= overlap_depth_y;
+                        }
+                    }
+                } else if (overlap_depth_x < overlap_depth_z) {
+                    float push = overlap_depth_x * 0.5f;
+                    if (hb_a.position.x < hb_b.position.x) {
+                        glm::vec3 test_pos_a = hb_a.position; test_pos_a.x -= push;
+                        glm::vec3 test_pos_b = hb_b.position; test_pos_b.x += push;
+
+                        bool solid_a = is_solid(test_pos_a, hb_a.halfsize);
+                        bool solid_b = is_solid(test_pos_b, hb_b.halfsize);
+
+                        if (!solid_a && !solid_b) {
+                            hb_a.position = test_pos_a;
+                            hb_b.position = test_pos_b;
+                        } else if (!solid_a) {
+                            hb_a.position.x -= overlap_depth_x;
+                        } else if (!solid_b) {
+                            hb_b.position.x += overlap_depth_x;
+                        }
+                    } else {
+                        glm::vec3 test_pos_a = hb_a.position; test_pos_a.x += push;
+                        glm::vec3 test_pos_b = hb_b.position; test_pos_b.x -= push;
+
+                        bool solid_a = is_solid(test_pos_a, hb_a.halfsize);
+                        bool solid_b = is_solid(test_pos_b, hb_b.halfsize);
+
+                        if (!solid_a && !solid_b) {
+                            hb_a.position = test_pos_a;
+                            hb_b.position = test_pos_b;
+                        } else if (!solid_a) {
+                            hb_a.position.x += overlap_depth_x;
+                        } else if (!solid_b) {
+                            hb_b.position.x -= overlap_depth_x;
+                        }
+                    }
+                } else {
+                    float push = overlap_depth_z * 0.5f;
+                    if (hb_a.position.z < hb_b.position.z) {
+                        glm::vec3 test_pos_a = hb_a.position; test_pos_a.z -= push;
+                        glm::vec3 test_pos_b = hb_b.position; test_pos_b.z += push;
+
+                        bool solid_a = is_solid(test_pos_a, hb_a.halfsize);
+                        bool solid_b = is_solid(test_pos_b, hb_b.halfsize);
+
+                        if (!solid_a && !solid_b) {
+                            hb_a.position = test_pos_a;
+                            hb_b.position = test_pos_b;
+                        } else if (!solid_a) {
+                            hb_a.position.z -= overlap_depth_z;
+                        } else if (!solid_b) {
+                            hb_b.position.z += overlap_depth_z;
+                        }
+                    } else {
+                        glm::vec3 test_pos_a = hb_a.position; test_pos_a.z += push;
+                        glm::vec3 test_pos_b = hb_b.position; test_pos_b.z -= push;
+
+                        bool solid_a = is_solid(test_pos_a, hb_a.halfsize);
+                        bool solid_b = is_solid(test_pos_b, hb_b.halfsize);
+
+                        if (!solid_a && !solid_b) {
+                            hb_a.position = test_pos_a;
+                            hb_b.position = test_pos_b;
+                        } else if (!solid_a) {
+                            hb_a.position.z += overlap_depth_z;
+                        } else if (!solid_b) {
+                            hb_b.position.z -= overlap_depth_z;
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
 void process_client_packet(const std::shared_ptr<Connection> &client, Packet &packet) {
     packet.reset_read();
 
@@ -390,6 +551,7 @@ int main(int argc, char *argv[]) {
 
             dt = std::min<float>(dt, 0.05f);
             physics_solver->step(dt, 4);
+            resolve_entity_collisions(*global.ecs);
 
             for (std::size_t i = 0; i < global.ecs->size; i++) {
                 ECS::Object obj { global.ecs.get(), static_cast<EntityId>(i) };

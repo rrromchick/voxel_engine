@@ -644,7 +644,8 @@ void StateGame::render_ui() {
 
         ImTextureID atlas_tex_id = 0;
         if (global.texture) {
-            atlas_tex_id = (ImTextureID)(intptr_t)global.texture->get_handle();
+            atlas_tex_id = static_cast<ImTextureID>(
+                static_cast<intptr_t>(global.texture->get_handle()));
         }
 
         float hotbar_width = HOTBAR_SIZE * 48.0f + 30.0f;
@@ -652,9 +653,9 @@ void StateGame::render_ui() {
         ImGui::SetNextWindowSize(ImVec2(hotbar_width, 64.0f));
 
         ImGuiWindowFlags hud_flags = ImGuiWindowFlags_NoDecoration | 
-                                     ImGuiWindowFlags_AlwaysAutoResize | 
-                                     ImGuiWindowFlags_NoMove | 
-                                     ImGuiWindowFlags_NoSavedSettings;
+            ImGuiWindowFlags_AlwaysAutoResize | 
+            ImGuiWindowFlags_NoMove | 
+            ImGuiWindowFlags_NoSavedSettings;
 
         if (ImGui::Begin("Hotbar HUD", nullptr, hud_flags)) {
             for (std::size_t i = 0; i < HOTBAR_SIZE; ++i) {
