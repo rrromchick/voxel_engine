@@ -111,6 +111,32 @@ static bool init_assets() {
     return global.texture != nullptr;
 }
 
+static bool intersect_ray_aabb(const glm::vec3 &ray_origin, const glm::vec3 &ray_dir,
+    const glm::vec3 &box_min, const glm::vec3 &box_max, float &t_out) {
+    float tmin = 0.0f;
+    float tmax = 100.0f;
+
+    for (int i = 0; i < 3; i++) {
+        if (std::abs(ray_dir[i]) < 0.00001f) {
+            if (ray_origin[i] < box_min[i] || ray_origin[i] > box_max[i]) {
+                return false;
+            }
+        } else {
+            float ood = 1.0f / ray_dir[i];
+            float t1 = (box_min[i] - ray_origin[i]) * ood;
+            float t2 = (box_max[i] - ray_origin[i]) * ood;
+
+            if (t1 > t2) std::swap(t1, t2);
+            tmin = std::max(tmin, t1);
+            tmax = std::min(tmax, t2);
+
+            if (tmin > tmax) return false;
+        }
+    }
+    t_out = tmin;
+    return true;
+}
+
 void StateGame::request_entity_spawn(const glm::vec3 &spawn_pos) {
     if (!server_conn || !server_conn->is_open()) return;
 
@@ -230,6 +256,11 @@ void StateGame::process_network_packets() {
                         trans.position = initial_pos;
                         trans.rotation = glm::vec3(0.0f);
                     }
+                    if (!obj.has<HitboxComponent>()) {
+                        auto &hb = obj.add<HitboxComponent>();
+                        hb.halfsize = glm::vec3(0.3f, 0.9f, 0.3f);
+                        hb.position = initial_pos + glm::vec3(0.0f, hb.halfsize.y, 0.0f);
+                    }
                     if (!obj.has<RenderComponent>()) {
                         auto &rc = obj.add<RenderComponent>(RenderComponent(player_model));
                         rc.visible = true;
@@ -276,6 +307,9 @@ void StateGame::process_network_packets() {
                     auto &trans = obj.get<TransformComponent>();
                     trans.position = pos;
                     trans.rotation = rot;
+
+                    auto &hb = obj.get<HitboxComponent>();
+                    hb.position = pos + glm::vec3(0.0f, hb.halfsize.y, 0.0f);
                 }
                 break;
             }
@@ -318,6 +352,11 @@ void StateGame::process_network_packets() {
                         global.lighting->solve();
                     }
                 }
+                break;
+            }
+            case PacketType::EntityAttack: {
+                auto attacker_id = packet.read<uint32_t>();
+                auto target_id = packet.read<uint32_t>();
                 break;
             }
             default:
@@ -520,20 +559,67 @@ void StateGame::update() {
         camera->rotation = glm::mat4(1.0f);
         camera->rotate(cam_y, cam_x, 0);
 
-        if (auto hit = level->raycast(camera->position, camera->front, 10.0f)) {
-            global.line_batch->box(
-                hit->voxel_pos.x + 0.5f, hit->voxel_pos.y + 0.5f, hit->voxel_pos.z + 0.5f,
-                1.005f, 1.005f, 1.005f, 0.0f, 0.0f, 0.0f, 0.5f);
+        float max_reach = 5.0f;
+        float block_hit_dist = max_reach;
 
-            if (block_action_cooldown <= 0.0f) {
-                if (mouse->buttons[GLFW_MOUSE_BUTTON_1].down) { 
-                    uint8_t broken_block = hit->block_id;
+        auto block_hit = level->raycast(camera->position, camera->front, max_reach);
+        if (block_hit) {
+            block_hit_dist = glm::distance(camera->position, glm::vec3(block_hit->voxel_pos) + glm::vec3(0.5f));
+        }
+
+        // Check if any other player entity is hit before the block
+        EntityId hit_entity_id = static_cast<EntityId>(-1);
+        float closest_entity_dist = block_hit_dist;
+
+        for (std::size_t i = 0; i < global.ecs->size; i++) {
+            EntityId current_id = static_cast<EntityId>(i);
+            if (has_spawned && current_id == local_player_id) continue;
+
+            ECS::Object obj { global.ecs.get(), current_id };
+            if (!obj.is_valid() || !obj.has<HitboxComponent>() || !obj.has<TransformComponent>()) continue;
+
+            auto &hb = obj.get<HitboxComponent>();
+            glm::vec3 box_min = hb.position - hb.halfsize;
+            glm::vec3 box_max = hb.position + hb.halfsize;
+
+            float t = 0.0f;
+            if (intersect_ray_aabb(camera->position, camera->front, box_min, box_max, t)) {
+                if (t < closest_entity_dist) {
+                    closest_entity_dist = t;
+                    hit_entity_id = current_id;
+                }
+            }
+        }
+
+        // Render debug line box for blocks if a block is targeted and no closer entity is hit
+        if (block_hit && hit_entity_id == static_cast<EntityId>(-1)) {
+            global.line_batch->box(
+                block_hit->voxel_pos.x + 0.5f, block_hit->voxel_pos.y + 0.5f, block_hit->voxel_pos.z + 0.5f,
+                1.005f, 1.005f, 1.005f, 0.0f, 0.0f, 0.0f, 0.5f);
+        }
+
+        static float attack_cooldown = 0.0f;
+        if (attack_cooldown > 0.0f) attack_cooldown -= dt;
+
+        if (block_action_cooldown <= 0.0f) {
+            if (mouse->buttons[GLFW_MOUSE_BUTTON_1].down) { 
+                if (hit_entity_id != static_cast<EntityId>(-1)) {
+                    if (attack_cooldown <= 0.0f) {
+                        Packet attack_packet(PacketType::EntityAttack);
+                        attack_packet.write<uint32_t>(static_cast<uint32_t>(hit_entity_id));
+                        server_conn->send_packet(attack_packet);
+
+                        attack_cooldown = 0.5f; // 0.5 seconds attack cooldown
+                        block_action_cooldown = 0.2f;
+                    }
+                } else if (block_hit) {
+                    uint8_t broken_block = block_hit->block_id;
 
                     Packet packet(PacketType::BlockModify);
-                    packet.write<int32_t>(hit->voxel_pos.x);
-                    packet.write<int32_t>(hit->voxel_pos.y);
-                    packet.write<int32_t>(hit->voxel_pos.z);
-                    packet.write<uint8_t>(0);
+                    packet.write<int32_t>(block_hit->voxel_pos.x);
+                    packet.write<int32_t>(block_hit->voxel_pos.y);
+                    packet.write<int32_t>(block_hit->voxel_pos.z);
+                    packet.write<uint8_t>(0); // AIR
                     server_conn->send_packet(packet);
 
                     if (player.has<InventoryComponent>()) {
@@ -541,13 +627,15 @@ void StateGame::update() {
                     }
 
                     block_action_cooldown = 0.2f;
-                } else if (mouse->buttons[GLFW_MOUSE_BUTTON_2].down) { 
+                }
+            } else if (mouse->buttons[GLFW_MOUSE_BUTTON_2].down) { 
+                if (block_hit && hit_entity_id == static_cast<EntityId>(-1)) {
                     if (player.has<InventoryComponent>()) {
                         auto &inv = player.get<InventoryComponent>();
                         const auto &active = inv.active_item();
 
                         if (active.id != 0 && active.count > 0) {
-                            glm::ivec3 target_pos = hit->voxel_pos + hit->normal;
+                            glm::ivec3 target_pos = block_hit->voxel_pos + block_hit->normal;
 
                             Packet packet(PacketType::BlockModify);
                             packet.write<int32_t>(target_pos.x);

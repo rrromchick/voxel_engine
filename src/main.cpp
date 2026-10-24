@@ -18,6 +18,7 @@
 #include <cstring>
 
 Global global;
+static std::unordered_map<uint32_t, float> knockback_timers;
 
 static void setup_server_definitions() {
     global.blocks[BlockId::AIR] = std::make_unique<Block>(BlockId::AIR, 0);
@@ -379,14 +380,16 @@ void process_client_packet(const std::shared_ptr<Connection> &client, Packet &pa
                 if (in.move_right)    move_dir += right;
                 if (in.move_left)     move_dir -= right;
 
-                if (glm::length(move_dir) > 0.0001f) {
-                    move_dir = glm::normalize(move_dir);
-                    float speed = in.sprinting ? 7.0f : 4.5f;
-                    hb.velocity.x = move_dir.x * speed;
-                    hb.velocity.z = move_dir.z * speed;
-                } else {
-                    hb.velocity.x = 0.0f;
-                    hb.velocity.z = 0.0f;
+                if (knockback_timers.find(player_id) == knockback_timers.end()) {
+                    if (glm::length(move_dir) > 0.0001f) {
+                        move_dir = glm::normalize(move_dir);
+                        float speed = in.sprinting ? 7.0f : 4.5f;
+                        hb.velocity.x = move_dir.x * speed;
+                        hb.velocity.z = move_dir.z * speed;
+                    } else {
+                        hb.velocity.x = 0.0f;
+                        hb.velocity.z = 0.0f;
+                    }
                 }
 
                 if (in.jump && hb.grounded) {
@@ -441,6 +444,41 @@ void process_client_packet(const std::shared_ptr<Connection> &client, Packet &pa
                         other_client->send_packet(broadcast_despawn);
                     }
                 }
+            }
+            break;
+        }
+        case PacketType::EntityAttack: {
+            if (client->get_user_data() == nullptr) break;
+
+            uint32_t attacker_id = static_cast<uint32_t>(reinterpret_cast<uintptr_t>(client->get_user_data())) - 1;
+            uint32_t target_id = packet.read<uint32_t>();
+
+            ECS::Object attacker_obj { global.ecs.get(), static_cast<EntityId>(attacker_id) };
+            ECS::Object target_obj { global.ecs.get(), static_cast<EntityId>(target_id) };
+
+            if (!attacker_obj.is_valid() || !target_obj.is_valid()) break;
+            if (!attacker_obj.has<TransformComponent>() || !target_obj.has<HitboxComponent>()) break;
+
+            auto &attacker_trans = attacker_obj.get<TransformComponent>();
+            auto &target_hb = target_obj.get<HitboxComponent>();
+
+            glm::vec3 attacker_cam_pos = attacker_trans.position + glm::vec3(0.0f, 1.6f, 0.0f);
+            float dist = glm::distance(attacker_cam_pos, target_hb.position);
+
+            if (dist <= 5.0f) {
+                glm::vec3 knockback_dir = glm::normalize(target_hb.position - attacker_cam_pos);
+                knockback_dir.y = 0.0f; 
+                
+                target_hb.velocity = glm::normalize(knockback_dir) * 7.0f + glm::vec3(0.0f, 4.5f, 0.0f);
+                target_hb.grounded = false;
+                knockback_timers[target_id] = 0.25f;
+
+                Packet broadcast_attack(PacketType::EntityAttack);
+                broadcast_attack.write<uint32_t>(attacker_id);
+                broadcast_attack.write<uint32_t>(target_id);
+                broadcast_packet_all(broadcast_attack);
+
+                std::cout << "[Server] Player " << attacker_id << " attacked Player " << target_id << std::endl;
             }
             break;
         }
@@ -551,6 +589,16 @@ int main(int argc, char *argv[]) {
             }
 
             dt = std::min<float>(dt, 0.05f);
+
+            for (auto it = knockback_timers.begin(); it != knockback_timers.end(); ) {
+                it->second -= dt;
+                if (it->second <= 0.0f) {
+                    it = knockback_timers.erase(it);
+                } else {
+                    ++it;
+                }
+            }
+
             physics_solver->step(dt, 4);
             resolve_entity_collisions(*global.ecs);
 
