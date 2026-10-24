@@ -108,7 +108,10 @@ static bool init_assets() {
     if (!global.entity_shader) return false;
 
     global.texture = std::make_unique<Texture>("res/images/texture_atlas.png");
-    return global.texture != nullptr;
+    if (!global.texture) return false;
+
+    global.heart_texture = std::make_unique<Texture>("res/images/heart_atlas.png");
+    return global.heart_texture != nullptr;
 }
 
 static bool intersect_ray_aabb(const glm::vec3 &ray_origin, const glm::vec3 &ray_dir,
@@ -223,6 +226,7 @@ void StateGame::process_network_packets() {
                     }
                     
                     if (!player.has<PlayerInputComponent>()) player.add<PlayerInputComponent>();
+                    if (!player.has<HealthComponent>()) player.add<HealthComponent>();
                     if (!player.has<InventoryComponent>()) {
                         auto &inv = player.add<InventoryComponent>();
 
@@ -260,6 +264,9 @@ void StateGame::process_network_packets() {
                         auto &hb = obj.add<HitboxComponent>();
                         hb.halfsize = glm::vec3(0.3f, 0.9f, 0.3f);
                         hb.position = initial_pos + glm::vec3(0.0f, hb.halfsize.y, 0.0f);
+                    }
+                    if (!obj.has<HealthComponent>()) {
+                        obj.add<HealthComponent>();
                     }
                     if (!obj.has<RenderComponent>()) {
                         auto &rc = obj.add<RenderComponent>(RenderComponent(player_model));
@@ -357,6 +364,16 @@ void StateGame::process_network_packets() {
             case PacketType::EntityAttack: {
                 auto attacker_id = packet.read<uint32_t>();
                 auto target_id = packet.read<uint32_t>();
+
+                ECS::Object target_obj { global.ecs.get(), static_cast<EntityId>(target_id) };
+                if (target_obj.is_valid() && target_obj.has<HealthComponent>()) {
+                    auto &health_comp = target_obj.get<HealthComponent>();
+                    health_comp.remove_health(1); 
+
+                    if (target_id == local_player_id) {
+                        std::cout << "[Combat] Took damage! Health left: " << static_cast<int>(health_comp.health) << std::endl;
+                    }
+                }
                 break;
             }
             default:
@@ -470,6 +487,8 @@ void StateGame::send_player_state() {
     bool in_fluid = (current_block == BlockId::WATER || current_block == BlockId::LAVA);
     bool space_down = is_grabbed && keyboard->keys[GLFW_KEY_SPACE].down;
 
+    uint8_t current_health = player.has<HealthComponent>() ? player.get<HealthComponent>().health : 20;
+
     Packet packet(PacketType::PlayerState);
     packet.write<bool>(is_grabbed && keyboard->keys[GLFW_KEY_W].down);
     packet.write<bool>(is_grabbed && keyboard->keys[GLFW_KEY_S].down);
@@ -482,6 +501,7 @@ void StateGame::send_player_state() {
     packet.write<bool>(in_fluid && space_down);
     packet.write<float>(cam_x);
     packet.write<float>(cam_y);
+    packet.write<uint8_t>(current_health);
 
     server_conn->send_packet(packet);
 }
@@ -567,7 +587,6 @@ void StateGame::update() {
             block_hit_dist = glm::distance(camera->position, glm::vec3(block_hit->voxel_pos) + glm::vec3(0.5f));
         }
 
-        // Check if any other player entity is hit before the block
         EntityId hit_entity_id = static_cast<EntityId>(-1);
         float closest_entity_dist = block_hit_dist;
 
@@ -591,7 +610,6 @@ void StateGame::update() {
             }
         }
 
-        // Render debug line box for blocks if a block is targeted and no closer entity is hit
         if (block_hit && hit_entity_id == static_cast<EntityId>(-1)) {
             global.line_batch->box(
                 block_hit->voxel_pos.x + 0.5f, block_hit->voxel_pos.y + 0.5f, block_hit->voxel_pos.z + 0.5f,
@@ -609,7 +627,7 @@ void StateGame::update() {
                         attack_packet.write<uint32_t>(static_cast<uint32_t>(hit_entity_id));
                         server_conn->send_packet(attack_packet);
 
-                        attack_cooldown = 0.5f; // 0.5 seconds attack cooldown
+                        attack_cooldown = 0.5f; 
                         block_action_cooldown = 0.2f;
                     }
                 } else if (block_hit) {
@@ -619,7 +637,7 @@ void StateGame::update() {
                     packet.write<int32_t>(block_hit->voxel_pos.x);
                     packet.write<int32_t>(block_hit->voxel_pos.y);
                     packet.write<int32_t>(block_hit->voxel_pos.z);
-                    packet.write<uint8_t>(0); // AIR
+                    packet.write<uint8_t>(0); 
                     server_conn->send_packet(packet);
 
                     if (player.has<InventoryComponent>()) {
@@ -747,6 +765,50 @@ void StateGame::render_ui() {
     ImGui::NewFrame();
 
     ImGuiIO &io = ImGui::GetIO();
+
+    if (player.has<HealthComponent>()) {
+        auto &health_comp = player.get<HealthComponent>();
+        
+        float hotbar_width = HOTBAR_SIZE * 48.0f + 30.0f;
+        ImGui::SetNextWindowPos(ImVec2((io.DisplaySize.x - hotbar_width) * 0.5f, io.DisplaySize.y - 105.0f), ImGuiCond_Always);
+        ImGui::SetNextWindowSize(ImVec2(hotbar_width, 40.0f));
+
+        ImGuiWindowFlags health_flags = ImGuiWindowFlags_NoDecoration | 
+            ImGuiWindowFlags_AlwaysAutoResize | 
+            ImGuiWindowFlags_NoMove | 
+            ImGuiWindowFlags_NoSavedSettings |
+            ImGuiWindowFlags_NoBackground;
+
+        if (ImGui::Begin("Health HUD", nullptr, health_flags)) {
+            if (global.heart_texture) {
+                ImTextureID heart_tex_id = static_cast<ImTextureID>(static_cast<intptr_t>(global.heart_texture->get_handle()));
+                int total_hearts = health_comp.max_health / 2; 
+                int current_hp = health_comp.health;
+                ImVec2 heart_size(24.0f, 40.0f);
+
+                for (int i = 0; i < total_hearts; i++) {
+                    if (i > 0) ImGui::SameLine(0.0f, 4.0f);
+
+                    ImVec2 uv0, uv1;
+                    if (current_hp >= (i + 1) * 2) {
+                        uv0 = ImVec2(0.0f, 1.0f);
+                        uv1 = ImVec2(1.0f / 3.0f, 0.0f);
+                    } else if (current_hp == i * 2 + 1) {
+                        uv0 = ImVec2(1.0f / 3.0f, 1.0f);
+                        uv1 = ImVec2(2.0f / 3.0f, 0.0f);
+                    } else {
+                        uv0 = ImVec2(2.0f / 3.0f, 1.0f);
+                        uv1 = ImVec2(1.0f, 0.0f);
+                    }
+
+                    ImGui::PushID(i);
+                    ImGui::Image(heart_tex_id, heart_size, uv0, uv1);
+                    ImGui::PopID();
+                }
+            }
+        }
+        ImGui::End();
+    }
 
     if (player.has<InventoryComponent>()) {
         auto &inv = player.get<InventoryComponent>();

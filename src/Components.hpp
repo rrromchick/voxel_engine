@@ -138,10 +138,35 @@ struct InventoryComponent : public ECS::Component<InventoryComponent> {
     }
 };
 
+struct HealthComponent : public ECS::Component<HealthComponent> {
+    uint8_t health = 20;
+    uint8_t max_health = 20;
+
+    HealthComponent() = default;
+    explicit HealthComponent(uint8_t h) : health(h) {}
+
+    void add_health(uint8_t val = 1) {
+        if (health + val > max_health) {
+            health = max_health;
+        } else {
+            health += val;
+        }
+    }
+
+    void remove_health(uint8_t val = 1) {
+        if (health > val) {
+            health -= val;
+        } else {
+            health = 0;
+        }
+    }
+};
+
 inline void register_shared_components(ECS &ecs) {
     ecs.register_type<TransformComponent>();
     ecs.register_type<NetworkComponent>();
     ecs.register_type<InventoryComponent>();
+    ecs.register_type<HealthComponent>();
 }
 
 inline void register_server_components(ECS &ecs) {

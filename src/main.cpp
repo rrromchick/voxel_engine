@@ -294,6 +294,9 @@ void process_client_packet(const std::shared_ptr<Connection> &client, Packet &pa
             hb.grounded = false;
 
             player_entity.add<PlayerInputComponent>();
+            if (!player_entity.has<HealthComponent>()) {
+                player_entity.add<HealthComponent>();
+            }
 
             auto spawn_cx = static_cast<int>(std::floor(spawn_pos.x / Chunk::WIDTH));
             auto spawn_cy = static_cast<int>(std::floor(spawn_pos.y / Chunk::HEIGHT));
@@ -369,6 +372,11 @@ void process_client_packet(const std::shared_ptr<Connection> &client, Packet &pa
 
                 trans.rotation.y = in.yaw;
                 trans.rotation.x = in.pitch;
+
+                uint8_t client_health = packet.read<uint8_t>();
+                if (obj.has<HealthComponent>()) {
+                    obj.get<HealthComponent>().health = client_health; 
+                }
 
                 glm::vec3 move_dir { 0.0f };
 
@@ -468,17 +476,21 @@ void process_client_packet(const std::shared_ptr<Connection> &client, Packet &pa
             if (dist <= 5.0f) {
                 glm::vec3 knockback_dir = glm::normalize(target_hb.position - attacker_cam_pos);
                 knockback_dir.y = 0.0f; 
-                
                 target_hb.velocity = glm::normalize(knockback_dir) * 7.0f + glm::vec3(0.0f, 4.5f, 0.0f);
                 target_hb.grounded = false;
                 knockback_timers[target_id] = 0.25f;
+
+                if (target_obj.has<HealthComponent>()) {
+                    auto &health_comp = target_obj.get<HealthComponent>();
+                    health_comp.remove_health(1);
+                    std::cout << "[Server] Player " << attacker_id << " dealt damage to Player " << target_id << 
+                        ". Target HP: " << static_cast<int>(health_comp.health) << std::endl;
+                }
 
                 Packet broadcast_attack(PacketType::EntityAttack);
                 broadcast_attack.write<uint32_t>(attacker_id);
                 broadcast_attack.write<uint32_t>(target_id);
                 broadcast_packet_all(broadcast_attack);
-
-                std::cout << "[Server] Player " << attacker_id << " attacked Player " << target_id << std::endl;
             }
             break;
         }
