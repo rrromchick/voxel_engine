@@ -50,6 +50,7 @@ add_library(engine_core STATIC
     src/state/StateGame.cpp
     src/Player.cpp
     src/gfx/VoxelModel.cpp
+    src/util/Animator.hpp
 )
 
 target_include_directories(engine_core PUBLIC

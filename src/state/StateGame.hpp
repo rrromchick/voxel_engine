@@ -7,6 +7,7 @@
 #include "PhysicsSolver.hpp"
 #include "Player.hpp"
 #include "VoxelModel.hpp"
+#include "Animator.hpp"
 
 struct StateGame : public State {
     explicit StateGame(std::shared_ptr<Connection> conn)
@@ -34,6 +35,8 @@ private:
     Player player;
 
     std::shared_ptr<VoxelModel> player_model;
+    std::shared_ptr<VoxelModel> head, torso, left_hand, right_hand, left_foot, right_foot;
+    std::unordered_map<EntityId, Animator> entity_animators;
 
     uint32_t local_player_id = 0;
     bool show_inventory = false;

@@ -12,6 +12,7 @@
 #include "WorldGenerator.hpp"
 #include "Player.hpp"
 #include "Lightmap.hpp"
+#include "Animator.hpp"
 #include "imgui.h"
 #include "imgui_impl_glfw.h"
 #include "imgui_impl_opengl3.h"
@@ -153,7 +154,20 @@ void StateGame::init() {
     init_assets();
 
     player_model = std::make_shared<VoxelModel>();
-    player_model->load_from_vox("res/vox/chr_knight.vox");
+    head = std::make_shared<VoxelModel>();
+    torso = std::make_shared<VoxelModel>();
+    left_hand = std::make_shared<VoxelModel>();
+    right_hand = std::make_shared<VoxelModel>();
+    left_foot = std::make_shared<VoxelModel>();
+    right_foot = std::make_shared<VoxelModel>();
+    
+    player_model->load_from_vox("res/vox/Steve.vox");
+    head->load_from_vox("res/vox/head.vox");
+    torso->load_from_vox("res/vox/torso.vox");
+    left_hand->load_from_vox("res/vox/left_hand.vox");
+    right_hand->load_from_vox("res/vox/right_hand.vox");
+    left_foot->load_from_vox("res/vox/left_foot.vox");
+    right_foot->load_from_vox("res/vox/right_foot.vox");
 
     global.ecs = std::make_unique<ECS>();
     register_client_components(*global.ecs);
@@ -306,6 +320,10 @@ void StateGame::process_network_packets() {
                     if (!obj.has<TransformComponent>()) {
                         obj.add<TransformComponent>();
                     }
+                    if (!obj.has<HitboxComponent>()) {
+                        auto &hb = obj.add<HitboxComponent>();
+                        hb.halfsize = glm::vec3(0.3f, 0.9f, 0.3f);
+                    }
                     if (!obj.has<RenderComponent>()) {
                         auto &rc = obj.add<RenderComponent>(RenderComponent(player_model));
                         rc.visible = true; 
@@ -317,6 +335,7 @@ void StateGame::process_network_packets() {
 
                     auto &hb = obj.get<HitboxComponent>();
                     hb.position = pos + glm::vec3(0.0f, hb.halfsize.y, 0.0f);
+                    hb.velocity = vel; 
                 }
                 break;
             }
@@ -364,6 +383,8 @@ void StateGame::process_network_packets() {
             case PacketType::EntityAttack: {
                 auto attacker_id = packet.read<uint32_t>();
                 auto target_id = packet.read<uint32_t>();
+
+                entity_animators[attacker_id].trigger_attack();
 
                 ECS::Object target_obj { global.ecs.get(), static_cast<EntityId>(target_id) };
                 if (target_obj.is_valid() && target_obj.has<HealthComponent>()) {
@@ -416,12 +437,20 @@ void StateGame::render() {
         if (has_spawned && current_id == local_player_id) continue;
 
         ECS::Object obj { global.ecs.get(), current_id };
-        if (!obj.is_valid() || !obj.has<RenderComponent>() || !obj.has<TransformComponent>()) continue;
+        if (!obj.is_valid() || !obj.has<TransformComponent>()) continue;
 
-        auto &render_comp = obj.get<RenderComponent>();
         auto &trans_comp = obj.get<TransformComponent>();
 
-        if (!render_comp.visible || !render_comp.model) continue;
+        glm::vec3 velocity(0.0f);
+        if (obj.has<HitboxComponent>()) {
+            velocity = obj.get<HitboxComponent>().velocity;
+        }
+
+        float dt = static_cast<float>(global.window->frame_delta) / 1'000'000'000.0f;
+
+        Animator &animator = entity_animators[current_id];
+        animator.update(velocity, dt);
+        LimbAngles limbs = animator.get_limb_angles();
 
         int px = static_cast<int>(std::floor(trans_comp.position.x));
         int py = static_cast<int>(std::floor(trans_comp.position.y + 0.5f));
@@ -445,22 +474,50 @@ void StateGame::render() {
         global.entity_shader->uniform_3f("u_env_block_light", block_light.r, block_light.g, block_light.b);
         global.entity_shader->uniform_1f("u_env_sky_light", sky_light);
 
-        glm::vec3 aabb_size = render_comp.model->tight_aabb.get_size();
+        glm::vec3 aabb_size = player_model->tight_aabb.get_size();
         float scale_factor = 1.8f / std::max(aabb_size.y, 0.001f);
 
         glm::vec3 feet_pivot = glm::vec3(
-            render_comp.model->tight_aabb.min_bounds.x + aabb_size.x * 0.5f,
-            render_comp.model->tight_aabb.min_bounds.y, 
-            render_comp.model->tight_aabb.min_bounds.z + aabb_size.z * 0.5f
+            player_model->tight_aabb.min_bounds.x + aabb_size.x * 0.5f,
+            player_model->tight_aabb.min_bounds.y, 
+            player_model->tight_aabb.min_bounds.z + aabb_size.z * 0.5f
         );
 
-        glm::mat4 model_mat = glm::translate(glm::mat4(1.0f), trans_comp.position);
-        model_mat = glm::rotate(model_mat, trans_comp.rotation.y, glm::vec3(0.0f, 1.0f, 0.0f));
-        model_mat = glm::scale(model_mat, glm::vec3(scale_factor));
-        model_mat = glm::translate(model_mat, -feet_pivot); 
+        glm::mat4 base_model = glm::translate(glm::mat4(1.0f), trans_comp.position);
+        base_model = glm::rotate(base_model, trans_comp.rotation.y, glm::vec3(0.0f, 1.0f, 0.0f));
+        base_model = glm::scale(base_model, glm::vec3(scale_factor));
+        base_model = glm::translate(base_model, -feet_pivot);
 
-        global.entity_shader->uniform_matrix("u_model", model_mat);
-        render_comp.model->draw();
+        auto draw_part = [&](std::shared_ptr<VoxelModel> model, const glm::vec3 &local_offset, float rotation_x, bool is_foot, bool is_hand) {
+            if (!model) return;
+
+            glm::mat4 part_mat = base_model;
+            part_mat = glm::translate(part_mat, local_offset);
+
+            if (is_foot) {
+                float height = model->tight_aabb.get_size().y;
+                part_mat = glm::translate(part_mat, glm::vec3(0.0f, height, 0.0f));
+                part_mat = glm::rotate(part_mat, rotation_x, glm::vec3(1.0f, 0.0f, 0.0f));
+                part_mat = glm::translate(part_mat, glm::vec3(0.0f, -height, 0.0f));
+            } else if (is_hand) {
+                float top_y = model->tight_aabb.max_bounds.y;
+                part_mat = glm::translate(part_mat, glm::vec3(0.0f, top_y, 0.0f));
+                part_mat = glm::rotate(part_mat, rotation_x, glm::vec3(1.0f, 0.0f, 0.0f));
+                part_mat = glm::translate(part_mat, glm::vec3(0.0f, -top_y, 0.0f));
+            } else {
+                part_mat = glm::rotate(part_mat, rotation_x, glm::vec3(1.0f, 0.0f, 0.0f));
+            }
+
+            global.entity_shader->uniform_matrix("u_model", part_mat);
+            model->draw();
+        };
+
+        draw_part(torso,      glm::vec3(0.0f, 0.45f, 0.0f),  0.0f,               false, false);
+        draw_part(head,       glm::vec3(0.0f, 1.10f, 0.0f),  0.0f,               false, false);
+        draw_part(left_hand,  glm::vec3(-0.25f, 1.05f, 0.0f), limbs.left_hand,  false, true);
+        draw_part(right_hand, glm::vec3( 0.25f, 1.05f, 0.0f), limbs.right_hand, false, true);
+        draw_part(left_foot,  glm::vec3(-0.08f, 0.22f, 0.0f), limbs.left_foot,  true,  false);
+        draw_part(right_foot, glm::vec3( 0.08f, 0.22f, 0.0f), limbs.right_foot, true,  false);
     }
 
     global.crosshair_shader->use();
@@ -626,6 +683,8 @@ void StateGame::update() {
                         Packet attack_packet(PacketType::EntityAttack);
                         attack_packet.write<uint32_t>(static_cast<uint32_t>(hit_entity_id));
                         server_conn->send_packet(attack_packet);
+
+                        entity_animators[local_player_id].trigger_attack();
 
                         attack_cooldown = 0.5f; 
                         block_action_cooldown = 0.2f;
