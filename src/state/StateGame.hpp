@@ -8,10 +8,11 @@
 #include "Player.hpp"
 #include "VoxelModel.hpp"
 #include "Animator.hpp"
+#include "Database.hpp"
 
 struct StateGame : public State {
-    explicit StateGame(std::shared_ptr<Connection> conn)
-        : State(STATE_GAME), server_conn(std::move(conn)) {}
+    explicit StateGame(std::shared_ptr<Connection> conn, PlayerData player_data)
+        : State(STATE_GAME), server_conn(std::move(conn)), player_data(std::move(player_data)) {}
 
     void init() override;
     void destroy() override;
@@ -19,12 +20,12 @@ struct StateGame : public State {
     void tick() override;
     void render() override;
 
-    void render_ui();
+    void render_ui() override;
 
 private:
     void process_network_packets();
     void send_player_state();
-    void request_entity_spawn(const glm::vec3 &spawn_pos);
+    void request_entity_spawn(const glm::vec3 &spawn_pos, uint32_t db_id, const std::string &username);
 
     std::shared_ptr<Connection> server_conn;
 
@@ -33,6 +34,7 @@ private:
     std::unique_ptr<PhysicsSolver> physics_solver;
     
     Player player;
+    PlayerData player_data;
 
     std::shared_ptr<VoxelModel> player_model;
     std::shared_ptr<VoxelModel> head, torso, left_hand, right_hand, left_foot, right_foot;

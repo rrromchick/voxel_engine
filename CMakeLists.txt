@@ -34,6 +34,10 @@ target_include_directories(imgui PUBLIC
 )
 target_link_libraries(imgui PUBLIC glfw glad OpenGL::GL)
 
+add_library(sqlite3 STATIC external/sqlite3.c external/sqlite3.h)
+target_include_directories(sqlite3 PUBLIC external)
+target_compile_options(sqlite3 PRIVATE -w)
+
 add_library(engine_core STATIC
     src/gfx/Texture.cpp
     src/gfx/Mesh.cpp
@@ -47,10 +51,12 @@ add_library(engine_core STATIC
     src/lighting/Lighting.cpp
     src/files/WorldFiles.cpp
     src/physics/PhysicsSolver.cpp
-    src/state/StateGame.cpp
+    src/state/StateGame.cpp 
+    src/state/StateMainMenu.cpp
     src/Player.cpp
     src/gfx/VoxelModel.cpp
     src/util/Animator.hpp
+    src/util/Database.cpp
 )
 
 target_include_directories(engine_core PUBLIC
@@ -74,6 +80,7 @@ target_link_libraries(engine_core PUBLIC
     glm::glm
     OpenGL::GL
     imgui
+    sqlite3
     $<$<PLATFORM_ID:Windows>:ws2_32>
 )
 

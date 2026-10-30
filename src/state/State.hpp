@@ -23,4 +23,5 @@ struct State {
 	virtual void tick() {}
 	virtual void update() {}
 	virtual void render() {}
+    virtual void render_ui() {}
 };

@@ -162,11 +162,21 @@ struct HealthComponent : public ECS::Component<HealthComponent> {
     }
 };
 
+struct NameComponent : public ECS::Component<NameComponent> {
+    std::string name;
+
+    NameComponent() = default;
+
+    explicit NameComponent(std::string name)
+        : name(name) {}
+};
+
 inline void register_shared_components(ECS &ecs) {
     ecs.register_type<TransformComponent>();
     ecs.register_type<NetworkComponent>();
     ecs.register_type<InventoryComponent>();
     ecs.register_type<HealthComponent>();
+    ecs.register_type<NameComponent>();
 }
 
 inline void register_server_components(ECS &ecs) {

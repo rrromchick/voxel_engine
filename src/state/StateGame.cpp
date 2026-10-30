@@ -141,11 +141,13 @@ static bool intersect_ray_aabb(const glm::vec3 &ray_origin, const glm::vec3 &ray
     return true;
 }
 
-void StateGame::request_entity_spawn(const glm::vec3 &spawn_pos) {
+void StateGame::request_entity_spawn(const glm::vec3 &spawn_pos, uint32_t db_id, const std::string &username) {
     if (!server_conn || !server_conn->is_open()) return;
 
     Packet packet(PacketType::EntitySpawn);
     packet.write_vec3(spawn_pos);
+    packet.write<uint32_t>(db_id);
+    packet.write_string(username); 
     server_conn->send_packet(packet);
 }
 
@@ -181,10 +183,10 @@ void StateGame::init() {
     global.crosshair = std::make_unique<Mesh>(vertices, attrs);
     global.lighting = std::make_unique<Lighting>();
 
-    camera = std::make_unique<Camera>(glm::vec3(32, 120.5f, 32), glm::radians(90.0f));
-    player = Player::create(glm::vec3(32, 122.0f, 32));
+    camera = std::make_unique<Camera>(player_data.position + glm::vec3(0.0f, 1.6f, 0.0f), glm::radians(90.0f));
+    player = Player::create(player_data.position);
 
-    request_entity_spawn(glm::vec3(32.0f, 122.0f, 32.0f));
+    request_entity_spawn(player_data.position, player_data.id, player_data.username);
 
     global.ecs->level->ensure_loaded_around(
         static_cast<int>(std::floor(camera->position.x / Chunk::WIDTH)),
@@ -223,9 +225,17 @@ void StateGame::process_network_packets() {
                 auto spawned_id = packet.read<uint32_t>();
                 glm::vec3 initial_pos = packet.read_vec3();
                 bool is_local = packet.read<bool>();
+                std::string username = packet.read_string();
 
                 if (spawned_id >= global.ecs->size) {
                     global.ecs->resize(spawned_id + 16);
+                }
+
+                ECS::Object obj { global.ecs.get(), static_cast<EntityId>(spawned_id) };
+                if (obj.has<NameComponent>()) {
+                    obj.get<NameComponent>().name = username;
+                } else {
+                    obj.add<NameComponent>(NameComponent(username));
                 }
 
                 if (is_local) {
@@ -240,7 +250,12 @@ void StateGame::process_network_packets() {
                     }
                     
                     if (!player.has<PlayerInputComponent>()) player.add<PlayerInputComponent>();
-                    if (!player.has<HealthComponent>()) player.add<HealthComponent>();
+                    
+                    if (!player.has<HealthComponent>()) {
+                        auto &hc = player.add<HealthComponent>();
+                        hc.health = player_data.health;
+                    }
+                    
                     if (!player.has<InventoryComponent>()) {
                         auto &inv = player.add<InventoryComponent>();
 
@@ -825,6 +840,51 @@ void StateGame::render_ui() {
 
     ImGuiIO &io = ImGui::GetIO();
 
+    glm::mat4 projview = camera->get_projection() * camera->get_view();
+    ImGuiWindowFlags name_flags = ImGuiWindowFlags_NoDecoration | 
+        ImGuiWindowFlags_AlwaysAutoResize | 
+        ImGuiWindowFlags_NoMove | 
+        ImGuiWindowFlags_NoSavedSettings | 
+        ImGuiWindowFlags_NoFocusOnAppearing | 
+        ImGuiWindowFlags_NoNav |
+        ImGuiWindowFlags_NoBackground;
+
+    for (std::size_t i = 0; i < global.ecs->size; i++) {
+        EntityId current_id = static_cast<EntityId>(i);
+        if (has_spawned && current_id == local_player_id) continue;
+
+        ECS::Object obj { global.ecs.get(), current_id };
+        if (!obj.is_valid() || !obj.has<TransformComponent>() || !obj.has<NameComponent>()) continue;
+
+        auto &trans = obj.get<TransformComponent>();
+        std::string name = obj.get<NameComponent>().name;
+
+        glm::vec3 world_pos = trans.position + glm::vec3(0.0f, 2.2f, 0.0f);
+
+        glm::vec4 clip_space = projview * glm::vec4(world_pos, 1.0f);
+        if (clip_space.w <= 0.0f) continue; 
+
+        glm::vec3 ndc = glm::vec3(clip_space) / clip_space.w;
+        if (ndc.z < -1.0f || ndc.z > 1.0f) continue; 
+
+        float screen_x = (ndc.x + 1.0f) * 0.5f * io.DisplaySize.x;
+        float screen_y = (1.0f - ndc.y) * 0.5f * io.DisplaySize.y;
+
+        ImGui::SetNextWindowPos(ImVec2(screen_x, screen_y), ImGuiCond_Always, ImVec2(0.5f, 0.5f));
+        if (ImGui::Begin(("name_tag_" + std::to_string(i)).c_str(), nullptr, name_flags)) {
+            ImVec2 text_size = ImGui::CalcTextSize(name.c_str());
+            
+            ImGui::GetWindowDrawList()->AddRectFilled(
+                ImVec2(-4.0f, -2.0f), 
+                ImVec2(text_size.x + 4.0f, text_size.y + 2.0f), 
+                IM_COL32(0, 0, 0, 100), 
+                3.0f
+            );
+            ImGui::Text("%s", name.c_str());
+        }
+        ImGui::End();
+    }
+
     if (player.has<HealthComponent>()) {
         auto &health_comp = player.get<HealthComponent>();
         
@@ -990,7 +1050,8 @@ void StateGame::destroy() {
         despawn_packet.write<uint32_t>(local_player_id);
         server_conn->send_packet(despawn_packet);
 
-        std::this_thread::sleep_for(std::chrono::milliseconds(20));
+        global.network->update();
+        std::this_thread::sleep_for(std::chrono::milliseconds(50));
         server_conn->close();
     }
 }

@@ -8,6 +8,7 @@
 #include "Lightmap.hpp"
 #include "Level.hpp"
 #include "Window.hpp"
+#include "Database.hpp"
 
 #include <chrono>
 #include <thread>
@@ -18,7 +19,15 @@
 #include <cstring>
 
 Global global;
+
+struct PlayerSessionInfo {
+    uint32_t db_id;
+    std::string username;
+};
+
+static std::unordered_map<uint32_t, PlayerSessionInfo> entity_to_session;
 static std::unordered_map<uint32_t, float> knockback_timers;
+static Database server_db("world_data.db");
 
 static void setup_server_definitions() {
     global.blocks[BlockId::AIR] = std::make_unique<Block>(BlockId::AIR, 0);
@@ -88,16 +97,39 @@ void broadcast_packet_all(Packet &packet) {
     }
 }
 
+static void save_player_session(uint32_t entity_id, ECS::Object &player_entity) {
+    if (!player_entity.has<TransformComponent>() || !player_entity.has<HealthComponent>()) return;
+
+    if (entity_to_session.find(entity_id) != entity_to_session.end()) {
+        PlayerData data;
+        data.id = entity_to_session[entity_id].db_id;
+        data.username = entity_to_session[entity_id].username;
+        data.position = player_entity.get<TransformComponent>().position;
+        data.health = player_entity.get<HealthComponent>().health;
+        
+        if (server_db.save_player(data)) {
+            std::cout << "[Server] Successfully saved position (" 
+                << data.position.x << ", " << data.position.y << ", " << data.position.z 
+                << ") for user: " << data.username << std::endl;
+        } else {
+            std::cerr << "[Server Error] Failed to save player data for user: " << data.username << std::endl;
+        }
+    }
+}
+
 void process_client_disconnect(const std::shared_ptr<Connection> &client) {
     if (client->get_user_data() == nullptr) return;
 
     uint32_t entity_id = static_cast<uint32_t>(reinterpret_cast<uintptr_t>(client->get_user_data())) - 1;
-    client->set_user_data(nullptr);
 
     ECS::Object player_entity { global.ecs.get(), static_cast<EntityId>(entity_id) };
     if (player_entity.is_valid()) {
+        save_player_session(entity_id, player_entity);
         global.ecs->destroy(player_entity);
     }
+
+    entity_to_session.erase(entity_id);
+    client->set_user_data(nullptr);
 
     Packet despawn_packet(PacketType::EntityDespawn);
     despawn_packet.write<uint32_t>(entity_id);
@@ -243,6 +275,8 @@ void process_client_packet(const std::shared_ptr<Connection> &client, Packet &pa
             if (client->get_user_data() != nullptr) break;
 
             auto spawn_pos = packet.read_vec3();
+            uint32_t db_id = packet.read<uint32_t>();
+            std::string username = packet.read_string();
             spawn_pos.y += 0.05f;
 
             auto player_entity_opt = global.ecs->create();
@@ -252,6 +286,7 @@ void process_client_packet(const std::shared_ptr<Connection> &client, Packet &pa
             uint32_t entity_id = static_cast<uint32_t>(player_entity.id);
 
             client->set_user_data(reinterpret_cast<void*>(static_cast<uintptr_t>(entity_id + 1)));
+            entity_to_session[entity_id] = { db_id, username };
 
             auto &trans = player_entity.add<TransformComponent>();
             trans.position = spawn_pos;
@@ -263,6 +298,7 @@ void process_client_packet(const std::shared_ptr<Connection> &client, Packet &pa
             hb.grounded = false;
 
             player_entity.add<PlayerInputComponent>();
+            player_entity.add<NameComponent>(NameComponent(username));
             if (!player_entity.has<HealthComponent>()) {
                 player_entity.add<HealthComponent>();
             }
@@ -286,10 +322,16 @@ void process_client_packet(const std::shared_ptr<Connection> &client, Packet &pa
                         ECS::Object existing_obj { global.ecs.get(), static_cast<EntityId>(existing_id) };
 
                         if (existing_obj.has<TransformComponent>()) {
+                            std::string existing_username = "Player";
+                            if (entity_to_session.find(existing_id) != entity_to_session.end()) {
+                                existing_username = entity_to_session[existing_id].username;
+                            }
+
                             Packet spawn_existing(PacketType::EntitySpawn);
                             spawn_existing.write<uint32_t>(existing_id);
                             spawn_existing.write_vec3(existing_obj.get<TransformComponent>().position);
                             spawn_existing.write<bool>(false);
+                            spawn_existing.write_string(existing_username);
                             client->send_packet(spawn_existing);
                         }
                     }
@@ -300,12 +342,14 @@ void process_client_packet(const std::shared_ptr<Connection> &client, Packet &pa
             spawn_response.write<uint32_t>(entity_id);
             spawn_response.write_vec3(trans.position);
             spawn_response.write<bool>(true);
+            spawn_response.write_string(username);
             client->send_packet(spawn_response);
 
             Packet broadcast_spawn(PacketType::EntitySpawn);
             broadcast_spawn.write<uint32_t>(entity_id);
             broadcast_spawn.write_vec3(trans.position);
             broadcast_spawn.write<bool>(false);
+            broadcast_spawn.write_string(username);
 
             for (const auto &srv : global.network->get_servers()) {
                 for (const auto &other_client : srv->get_clients()) {
@@ -405,12 +449,15 @@ void process_client_packet(const std::shared_ptr<Connection> &client, Packet &pa
             if (client->get_user_data() == nullptr) break;
 
             auto entity_id = packet.read<uint32_t>();
-            client->set_user_data(nullptr);
-
+            
             ECS::Object player_entity { global.ecs.get(), static_cast<EntityId>(entity_id) };
             if (player_entity.is_valid()) {
+                save_player_session(entity_id, player_entity); 
                 global.ecs->destroy(player_entity);
             }
+
+            entity_to_session.erase(entity_id);
+            client->set_user_data(nullptr);
 
             Packet broadcast_despawn(PacketType::EntityDespawn);
             broadcast_despawn.write<uint32_t>(entity_id);
@@ -487,6 +534,12 @@ int main(int argc, char *argv[]) {
     global.generator = std::make_unique<WorldGenerator>();
     global.world_files = std::make_unique<WorldFiles>("world/", REGION_VOL * (Chunk::VOLUME * 2 + 8));
     global.lighting = std::make_unique<Lighting>();
+
+    if (server_db.init()) {
+        std::cout << "[Server] Database initialized successfully.\n";
+    } else {
+        std::cerr << "[Server] Failed to initialize database!\n";
+    }
 
     global.ecs->level = std::make_unique<Level>();
     global.ecs->level->ensure_loaded_around(0, 0, 0, 4, global.world_files.get());
@@ -603,6 +656,7 @@ int main(int argc, char *argv[]) {
                         (max_a.z > min_b.z && min_a.z < max_b.z);
 
                     float expected_y = max_b.y + hb_a.halfsize.y;
+
                     if (horizontal_overlap && std::abs(hb_a.position.y - expected_y) < 0.2f) {
                         hb_a.position.y = expected_y;
                         hb_a.velocity.y = 0.0f;
@@ -648,6 +702,23 @@ int main(int argc, char *argv[]) {
             }
 
             std::this_thread::sleep_for(std::chrono::milliseconds(1));
+        }
+    }
+
+    if (global.ecs) {
+        for (std::size_t i = 0; i < global.ecs->size; i++) {
+            ECS::Object obj { global.ecs.get(), static_cast<EntityId>(i) };
+            if (obj.is_valid() && obj.has<TransformComponent>() && obj.has<HealthComponent>()) {
+                uint32_t entity_id = static_cast<uint32_t>(obj.id);
+                if (entity_to_session.find(entity_id) != entity_to_session.end()) {
+                    PlayerData data;
+                    data.id = entity_to_session[entity_id].db_id;
+                    data.username = entity_to_session[entity_id].username;
+                    data.position = obj.get<TransformComponent>().position;
+                    data.health = obj.get<HealthComponent>().health;
+                    server_db.save_player(data);
+                }
+            }
         }
     }
 

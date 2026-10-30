@@ -2,6 +2,7 @@
 #include "Global.hpp"
 #include "Window.hpp"
 #include "Network.hpp"
+#include "StateMainMenu.hpp"
 #include "StateGame.hpp"
 #include <chrono>
 #include <iostream>
@@ -66,9 +67,9 @@ int main(int argc, char *argv[]) {
     glEnable(GL_BLEND);
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
     glfwSwapInterval(1);
-
-    auto game = std::make_unique<StateGame>(connection);
-    game->init();
+ 
+    std::unique_ptr<State> current_state = std::make_unique<StateMainMenu>(connection);
+    current_state->init();
 
     wnd->last_frame = global.time->now();
     wnd->frame_delta = 0;
@@ -92,7 +93,7 @@ int main(int argc, char *argv[]) {
         uint64_t tick_time = wnd->frame_delta + wnd->tick_remainder;
         while (tick_time >= NANOS_PER_TICK) {
             wnd->ticks++;
-            game->tick();
+            current_state->tick();
             tick_time -= NANOS_PER_TICK;
         }
         wnd->tick_remainder = tick_time;
@@ -101,9 +102,20 @@ int main(int argc, char *argv[]) {
             global.network->update();
         }
 
-        game->update();
-        game->render();
-        game->render_ui();
+        if (current_state->type == State::STATE_MAIN_MENU) {
+            auto *menu = dynamic_cast<StateMainMenu*>(current_state.get());
+            if (menu && menu->is_finished()) {
+                PlayerData player_data = menu->release_player_data();
+                
+                current_state->destroy();
+                current_state = std::make_unique<StateGame>(connection, std::move(player_data));
+                current_state->init();
+            }
+        }
+
+        current_state->update();
+        current_state->render();
+        current_state->render_ui();
 
         wnd->swap_buffers();
         wnd->get_mouse()->clear_delta();
@@ -114,8 +126,8 @@ int main(int argc, char *argv[]) {
         wnd->get_mouse()->update();
     }
 
-    game->destroy();
-    game.reset();
+    current_state->destroy();
+    current_state.reset();
 
     if (connection->is_open()) {
         connection->close();
