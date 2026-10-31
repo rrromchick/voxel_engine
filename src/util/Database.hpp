@@ -20,6 +20,9 @@ struct PlayerData {
     std::string password_hash;
     glm::vec3 position { 32.0f, 120.0f, 32.0f };
     uint8_t health = 20;
+
+    std::vector<uint8_t> inventory_raw;
+    uint8_t selected_slot = 0;
 };
 
 struct Database {

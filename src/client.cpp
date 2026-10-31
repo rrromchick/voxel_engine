@@ -106,9 +106,25 @@ int main(int argc, char *argv[]) {
             auto *menu = dynamic_cast<StateMainMenu*>(current_state.get());
             if (menu && menu->is_finished()) {
                 PlayerData player_data = menu->release_player_data();
+                auto active_conn = menu->get_connection(); 
                 
                 current_state->destroy();
-                current_state = std::make_unique<StateGame>(connection, std::move(player_data));
+                current_state = std::make_unique<StateGame>(active_conn, std::move(player_data));
+                current_state->init();
+            }
+        } else if (current_state->type == State::STATE_GAME) {
+            auto *game = dynamic_cast<StateGame*>(current_state.get());
+            if (game && game->is_login_rejected()) {
+                current_state->destroy();
+
+                socket_t raw_sock = connect_to_host("127.0.0.1", 8080);
+                auto new_connection = std::make_shared<TcpConnection>(raw_sock);
+                global.network->add_connection(new_connection);
+
+                auto menu = std::make_unique<StateMainMenu>(new_connection);
+                menu->set_error_message("Account already logged in elsewhere!");
+                
+                current_state = std::move(menu);
                 current_state->init();
             }
         }

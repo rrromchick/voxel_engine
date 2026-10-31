@@ -136,6 +136,29 @@ struct InventoryComponent : public ECS::Component<InventoryComponent> {
             std::swap(slots[slot_a], slots[slot_b]);
         }
     }
+
+    inline std::vector<uint8_t> serialize_inventory() {
+        std::vector<uint8_t> buffer;
+        buffer.push_back(selected_slot);
+
+        for (const auto &slot : slots) {
+            buffer.push_back(slot.id);
+            buffer.push_back(slot.count);
+        }
+        return buffer;
+    }
+
+    inline void deserialize_inventory(const std::vector<uint8_t> &buffer) {
+        if (buffer.empty()) return;
+
+        std::size_t index = 0;
+        selected_slot = buffer[index++];
+
+        for (std::size_t i = 0; i < 36 && index + 1 < buffer.size(); i++) {
+            slots[i].id = buffer[index++];
+            slots[i].count = buffer[index++];
+        }
+    }
 };
 
 struct HealthComponent : public ECS::Component<HealthComponent> {

@@ -15,7 +15,12 @@ struct StateMainMenu : public State {
     void render() override;
 
     bool is_finished() const { return switch_to_game; }
+    std::shared_ptr<Connection> get_connection() const { return server_conn; }
     PlayerData release_player_data() { return std::move(authenticated_player); }
+
+    inline void set_error_message(std::string message) {
+        error_message = message;
+    }
 
 private:
     std::shared_ptr<Connection> server_conn;

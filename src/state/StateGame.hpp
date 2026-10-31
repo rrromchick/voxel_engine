@@ -22,6 +22,10 @@ struct StateGame : public State {
 
     void render_ui() override;
 
+    inline bool is_login_rejected() const {
+        return login_rejected;
+    }
+
 private:
     void process_network_packets();
     void send_player_state();
@@ -43,6 +47,8 @@ private:
     uint32_t local_player_id = 0;
     bool show_inventory = false;
     bool has_spawned = false;
+    bool login_rejected = false;
+
     float cam_x = 0.0f, cam_y = 0.0f;
     float player_speed = 4.0f;
     float block_action_cooldown = 0.0f;

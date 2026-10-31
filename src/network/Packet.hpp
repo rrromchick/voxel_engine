@@ -17,6 +17,7 @@ enum class PacketType : uint8_t {
     EntityStateUpdate = 5,
     EntityDespawn = 6,
     EntityAttack = 7,
+    InventorySync = 8,
 };
 
 struct Packet {

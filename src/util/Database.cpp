@@ -25,7 +25,9 @@ bool Database::init() {
         "pos_x REAL NOT NULL DEFAULT 32.0,"
         "pos_y REAL NOT NULL DEFAULT 120.0,"
         "pos_z REAL NOT NULL DEFAULT 32.0,"
-        "health INTEGER NOT NULL DEFAULT 20"
+        "health INTEGER NOT NULL DEFAULT 20,"
+        "inventory BLOB,"
+        "selected_slot INTEGER NOT NULL DEFAULT 0"
         ");";
 
     char *err_msg = nullptr;
@@ -65,7 +67,7 @@ bool Database::register_user(const std::string &username, const std::string &pas
 bool Database::verify_user(const std::string &username, const std::string &password_hash, PlayerData &out_player) {
     if (!db) return false;
 
-    const char *sql = "SELECT id, pos_x, pos_y, pos_z, health FROM players WHERE username = ? AND password_hash = ?;";
+    const char *sql = "SELECT id, pos_x, pos_y, pos_z, health, inventory, selected_slot FROM players WHERE username = ? AND password_hash = ?;";
     sqlite3_stmt *stmt = nullptr;
 
     if (sqlite3_prepare_v2(db, sql, -1, &stmt, nullptr) != SQLITE_OK) {
@@ -83,7 +85,17 @@ bool Database::verify_user(const std::string &username, const std::string &passw
         out_player.position.x = static_cast<float>(sqlite3_column_double(stmt, 1));
         out_player.position.y = static_cast<float>(sqlite3_column_double(stmt, 2));
         out_player.position.z = static_cast<float>(sqlite3_column_double(stmt, 3));
-        out_player.health = static_cast<uint8_t>(sqlite3_column_int(stmt, 4)); 
+        out_player.health = static_cast<uint8_t>(sqlite3_column_int(stmt, 4));
+
+        const void *blob = sqlite3_column_blob(stmt, 5);
+        int blob_size = sqlite3_column_bytes(stmt, 5);
+        if (blob && blob_size > 0) {
+            out_player.inventory_raw.assign(
+                static_cast<const uint8_t*>(blob),
+                static_cast<const uint8_t*>(blob) + blob_size
+            );
+        }
+        out_player.selected_slot = static_cast<uint8_t>(sqlite3_column_int(stmt, 6));
         found = true;
     }
 
@@ -99,7 +111,9 @@ bool Database::save_player(const PlayerData &player) {
         "pos_x = ?, "
         "pos_y = ?, "
         "pos_z = ?, "
-        "health = ? "
+        "health = ?, "
+        "inventory = ?, "
+        "selected_slot = ? "
         "WHERE id = ?;";
 
     sqlite3_stmt *stmt = nullptr;
@@ -112,8 +126,16 @@ bool Database::save_player(const PlayerData &player) {
     sqlite3_bind_double(stmt, 2, player.position.y);
     sqlite3_bind_double(stmt, 3, player.position.z);
     sqlite3_bind_int(stmt, 4, player.health);
-    sqlite3_bind_int(stmt, 5, static_cast<int>(player.id));
 
+    if (!player.inventory_raw.empty()) {
+        sqlite3_bind_blob(stmt, 5, player.inventory_raw.data(), static_cast<int>(player.inventory_raw.size()), SQLITE_TRANSIENT);
+    } else {
+        sqlite3_bind_null(stmt, 5);
+    }
+
+    sqlite3_bind_int(stmt, 6, player.selected_slot);
+    sqlite3_bind_int(stmt, 7, static_cast<int>(player.id));
+    
     bool success = (sqlite3_step(stmt) == SQLITE_DONE);
     if (!success) {
         std::cerr << "[DB Error] Save execution failed: " << sqlite3_errmsg(db) << std::endl;
@@ -130,7 +152,7 @@ bool Database::save_player(const PlayerData &player) {
 bool Database::load_player(uint32_t id, PlayerData &out_player) {
     if (!db) return false;
 
-    const char *sql = "SELECT username, pos_x, pos_y, pos_z, health FROM players WHERE id = ?;";
+    const char *sql = "SELECT username, pos_x, pos_y, pos_z, health, inventory, selected_slot FROM players WHERE id = ?;";
     sqlite3_stmt *stmt = nullptr;
 
     if (sqlite3_prepare_v2(db, sql, -1, &stmt, nullptr) != SQLITE_OK) {
@@ -147,6 +169,16 @@ bool Database::load_player(uint32_t id, PlayerData &out_player) {
         out_player.position.y = static_cast<float>(sqlite3_column_double(stmt, 2));
         out_player.position.z = static_cast<float>(sqlite3_column_double(stmt, 3));
         out_player.health = static_cast<uint8_t>(sqlite3_column_int(stmt, 4));
+
+        const void *blob = sqlite3_column_blob(stmt, 5);
+        int blob_size = sqlite3_column_bytes(stmt, 5);
+        if (blob && blob_size > 0) {
+            out_player.inventory_raw.assign(
+                static_cast<const uint8_t*>(blob),
+                static_cast<const uint8_t*>(blob) + blob_size
+            );
+        }
+        out_player.selected_slot = static_cast<uint8_t>(sqlite3_column_int(stmt, 6));
         found = true;
     }
 

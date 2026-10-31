@@ -227,6 +227,24 @@ void StateGame::process_network_packets() {
                 bool is_local = packet.read<bool>();
                 std::string username = packet.read_string();
 
+                if (is_local && spawned_id == 0xFFFFFFFF && username == "ALREADY_LOGGED_IN") {
+                    std::cerr << "[Client] Login rejected: This account is already logged in.\n";
+                    login_rejected = true; 
+                    if (server_conn && server_conn->is_open()) {
+                        server_conn->close();
+                    }
+                    break;
+                }
+
+                std::vector<uint8_t> received_inventory;
+                if (is_local) {
+                    uint16_t inv_size = packet.read<uint16_t>();
+                    received_inventory.resize(inv_size);
+                    for (uint16_t i = 0; i < inv_size; i++) {
+                        received_inventory[i] = packet.read<uint8_t>();
+                    }
+                }
+
                 if (spawned_id >= global.ecs->size) {
                     global.ecs->resize(spawned_id + 16);
                 }
@@ -256,15 +274,17 @@ void StateGame::process_network_packets() {
                         hc.health = player_data.health;
                     }
                     
-                    if (!player.has<InventoryComponent>()) {
-                        auto &inv = player.add<InventoryComponent>();
-
+                    auto &inv = player.has<InventoryComponent>() ? player.get<InventoryComponent>() : player.add<InventoryComponent>();
+                    if (!received_inventory.empty()) {
+                        inv.deserialize_inventory(received_inventory);
+                    } else {
                         inv.slots[0] = { BlockId::GRASS, 64 };
                         inv.slots[1] = { BlockId::DIRT, 64 };
                         inv.slots[2] = { BlockId::STONE, 64 };
                         inv.slots[3] = { BlockId::LAMP, 16 };
                         inv.slots[4] = { BlockId::LOG, 32 };
                     }
+
                     if (player.has<RenderComponent>()) player.remove<RenderComponent>();
 
                     target_position = initial_pos;
@@ -1002,9 +1022,18 @@ void StateGame::render_ui() {
                             if (inv.slots[i].id != 0) dragged_slot = static_cast<int>(i);
                         } else {
                             inv.swap_slots(static_cast<std::size_t>(dragged_slot), i);
+
+                            auto inv_bytes = inv.serialize_inventory();
+                            Packet sync_packet(PacketType::InventorySync);
+                            sync_packet.write<uint16_t>(static_cast<uint16_t>(inv_bytes.size()));
+                            for (uint8_t byte : inv_bytes) {
+                                sync_packet.write<uint8_t>(byte);
+                            }
+                            server_conn->send_packet(sync_packet);
+
                             dragged_slot = -1;
                         }
-                    }
+                    }                
                 }
 
                 if (dragged_slot != -1) {
