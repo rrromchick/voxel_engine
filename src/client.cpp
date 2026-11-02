@@ -8,6 +8,10 @@
 #include <iostream>
 #include <algorithm>
 
+#ifndef _WIN32
+  #include <netdb.h>
+#endif
+
 Global global;
 
 constexpr auto WIDTH = 1280;

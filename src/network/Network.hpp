@@ -21,13 +21,14 @@
 #else
     #include <sys/socket.h>
     #include <netinet/in.h>
+    #include <netinet/tcp.h>
     #include <fcntl.h>
     #include <unistd.h>
     #include <errno.h>
 
     using socket_t = int;
     constexpr socket_t INVALID_SOCK = -1;
-    #define CLOSE_SOCK(s) close(s)
+    #define CLOSE_SOCK(s) ::close(s)
 #endif
 
 inline void set_non_blocking(socket_t sock) {
@@ -35,8 +36,8 @@ inline void set_non_blocking(socket_t sock) {
     u_long mode = 2;
     ioctlsocket(sock, FIONBIO, &mode);
 #else
-    int flags = fcntl(sock, FGETFL, 0);
-    fcntl(sock, FSETFL, flags | O_NONBLOCK);
+    int flags = fcntl(sock, F_GETFL, 0);
+    fcntl(sock, F_SETFL, flags | O_NONBLOCK);
 #endif
 }
 
