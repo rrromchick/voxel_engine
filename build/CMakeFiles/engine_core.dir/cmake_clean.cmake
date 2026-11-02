@@ -1,0 +1,43 @@
+file(REMOVE_RECURSE
+  "CMakeFiles/engine_core.dir/src/Player.cpp.obj"
+  "CMakeFiles/engine_core.dir/src/Player.cpp.obj.d"
+  "CMakeFiles/engine_core.dir/src/files/WorldFiles.cpp.obj"
+  "CMakeFiles/engine_core.dir/src/files/WorldFiles.cpp.obj.d"
+  "CMakeFiles/engine_core.dir/src/gfx/LineBatch.cpp.obj"
+  "CMakeFiles/engine_core.dir/src/gfx/LineBatch.cpp.obj.d"
+  "CMakeFiles/engine_core.dir/src/gfx/Mesh.cpp.obj"
+  "CMakeFiles/engine_core.dir/src/gfx/Mesh.cpp.obj.d"
+  "CMakeFiles/engine_core.dir/src/gfx/Texture.cpp.obj"
+  "CMakeFiles/engine_core.dir/src/gfx/Texture.cpp.obj.d"
+  "CMakeFiles/engine_core.dir/src/gfx/VoxelModel.cpp.obj"
+  "CMakeFiles/engine_core.dir/src/gfx/VoxelModel.cpp.obj.d"
+  "CMakeFiles/engine_core.dir/src/gfx/VoxelRenderer.cpp.obj"
+  "CMakeFiles/engine_core.dir/src/gfx/VoxelRenderer.cpp.obj.d"
+  "CMakeFiles/engine_core.dir/src/lighting/LightSolver.cpp.obj"
+  "CMakeFiles/engine_core.dir/src/lighting/LightSolver.cpp.obj.d"
+  "CMakeFiles/engine_core.dir/src/lighting/Lighting.cpp.obj"
+  "CMakeFiles/engine_core.dir/src/lighting/Lighting.cpp.obj.d"
+  "CMakeFiles/engine_core.dir/src/lighting/Lightmap.cpp.obj"
+  "CMakeFiles/engine_core.dir/src/lighting/Lightmap.cpp.obj.d"
+  "CMakeFiles/engine_core.dir/src/physics/PhysicsSolver.cpp.obj"
+  "CMakeFiles/engine_core.dir/src/physics/PhysicsSolver.cpp.obj.d"
+  "CMakeFiles/engine_core.dir/src/state/StateGame.cpp.obj"
+  "CMakeFiles/engine_core.dir/src/state/StateGame.cpp.obj.d"
+  "CMakeFiles/engine_core.dir/src/state/StateMainMenu.cpp.obj"
+  "CMakeFiles/engine_core.dir/src/state/StateMainMenu.cpp.obj.d"
+  "CMakeFiles/engine_core.dir/src/util/Database.cpp.obj"
+  "CMakeFiles/engine_core.dir/src/util/Database.cpp.obj.d"
+  "CMakeFiles/engine_core.dir/src/voxels/Chunk.cpp.obj"
+  "CMakeFiles/engine_core.dir/src/voxels/Chunk.cpp.obj.d"
+  "CMakeFiles/engine_core.dir/src/voxels/Level.cpp.obj"
+  "CMakeFiles/engine_core.dir/src/voxels/Level.cpp.obj.d"
+  "CMakeFiles/engine_core.dir/src/voxels/WorldGenerator.cpp.obj"
+  "CMakeFiles/engine_core.dir/src/voxels/WorldGenerator.cpp.obj.d"
+  "libengine_core.a"
+  "libengine_core.pdb"
+)
+
+# Per-language clean rules from dependency scanning.
+foreach(lang CXX)
+  include(CMakeFiles/engine_core.dir/cmake_clean_${lang}.cmake OPTIONAL)
+endforeach()

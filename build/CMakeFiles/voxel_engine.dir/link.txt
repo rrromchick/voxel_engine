@@ -1,0 +1,3 @@
+"C:\Program Files\CMake\bin\cmake.exe" -E rm -f CMakeFiles\voxel_engine.dir/objects.a
+C:\MinGW\mingw64\bin\ar.exe qc CMakeFiles\voxel_engine.dir/objects.a @CMakeFiles\voxel_engine.dir\objects1.rsp
+C:\MinGW\mingw64\bin\g++.exe -O3 -DNDEBUG -Wl,--whole-archive CMakeFiles\voxel_engine.dir/objects.a -Wl,--no-whole-archive -o voxel_engine.exe -Wl,--out-implib,libvoxel_engine.dll.a -Wl,--major-image-version,0,--minor-image-version,0 @CMakeFiles\voxel_engine.dir\linkLibs.rsp

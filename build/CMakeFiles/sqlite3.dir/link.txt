@@ -1,0 +1,2 @@
+C:\MinGW\mingw64\bin\ar.exe qc libsqlite3.a CMakeFiles/sqlite3.dir/external/sqlite3.c.obj
+C:\MinGW\mingw64\bin\ranlib.exe libsqlite3.a

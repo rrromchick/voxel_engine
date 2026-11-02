@@ -1,0 +1,1 @@
+ libengine_core.a external/glm/glm/libglm.a libimgui.a external/glfw/src/libglfw3.a libglad.a -lopengl32 libsqlite3.a -lws2_32 -lkernel32 -luser32 -lgdi32 -lwinspool -lshell32 -lole32 -loleaut32 -luuid -lcomdlg32 -ladvapi32 
