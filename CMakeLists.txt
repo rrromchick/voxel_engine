@@ -57,6 +57,7 @@ add_library(engine_core STATIC
     src/gfx/VoxelModel.cpp
     src/util/Animator.hpp
     src/util/Database.cpp
+    src/util/ThreadPool.hpp
 )
 
 target_include_directories(engine_core PUBLIC
@@ -96,7 +97,7 @@ else()
 endif()
 
 if(CMAKE_CXX_COMPILER_ID MATCHES "Clang")
-    add_link_options(-Wl,--allow-multiple-definition)
+    add_link_options(-Wl,--allow-multiple-definition -static)
 endif()
 
 add_executable(${PROJECT_NAME} src/main.cpp)
