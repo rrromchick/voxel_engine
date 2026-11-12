@@ -188,12 +188,23 @@ void StateGame::init() {
 
     request_entity_spawn(player_data.position, player_data.id, player_data.username);
 
+    auto request_chunk = [this](int x, int y, int z) {
+        if (server_conn && server_conn->is_open()) {
+            Packet req(PacketType::ChunkRequest);
+            req.write<int32_t>(x);
+            req.write<int32_t>(y);
+            req.write<int32_t>(z);
+            server_conn->send_packet(req);
+        }
+    };
+
     global.ecs->level->ensure_loaded_around(
         static_cast<int>(std::floor(camera->position.x / Chunk::WIDTH)),
         static_cast<int>(std::floor(camera->position.y / Chunk::HEIGHT)),
         static_cast<int>(std::floor(camera->position.z / Chunk::DEPTH)),
         2,
-        global.world_files.get()
+        global.world_files.get(),
+        request_chunk
     );
 
     if (global.lighting) {
@@ -217,6 +228,7 @@ void StateGame::process_network_packets() {
 
     global.network->update();
     auto packets = server_conn->poll_packets();
+    bool needs_light_solve = false;
     
     for (auto &packet : packets) {
         packet.reset_read();
@@ -262,7 +274,7 @@ void StateGame::process_network_packets() {
 
                     player = Player(global.ecs.get(), static_cast<EntityId>(spawned_id));
                     if (!player.has<TransformComponent>()) player.add<TransformComponent>();
-                    if (!player.has<TransformComponent>()) {
+                    if (!player.has<HitboxComponent>()) {
                         auto &hb = player.add<HitboxComponent>();
                         hb.halfsize = glm::vec3(0.3f, 0.9f, 0.3f);
                     }
@@ -295,12 +307,27 @@ void StateGame::process_network_packets() {
                     auto scy = static_cast<int>(std::floor(initial_pos.y / Chunk::HEIGHT));
                     auto scz = static_cast<int>(std::floor(initial_pos.z / Chunk::DEPTH));
 
+                    auto request_chunk = [this](int x, int y, int z) {
+                        if (server_conn && server_conn->is_open()) {
+                            Packet req(PacketType::ChunkRequest);
+                            req.write<int32_t>(x);
+                            req.write<int32_t>(y);
+                            req.write<int32_t>(z);
+                            server_conn->send_packet(req);
+                        }
+                    };
+
                     for (int dy = -1; dy <= 1; dy++) {
                         for (int dz = -1; dz <= 1; dz++) {
                             for (int dx = -1; dx <= 1; dx++) {
-                                global.ecs->level->ensure_loaded_around(scx + dx, scy + dy, scz + dz, 0, global.world_files.get());
+                                global.ecs->level->ensure_loaded_around(scx + dx, scy + dy, scz + dz, 0, global.world_files.get(), request_chunk);
                             }
                         }
+                    }
+
+                    if (global.lighting) {
+                        global.lighting->on_chunk_loaded(scx, scy, scz);
+                        global.lighting->solve();
                     }
                 } else {
                     ECS::Object obj { global.ecs.get(), static_cast<EntityId>(spawned_id) };
@@ -410,7 +437,7 @@ void StateGame::process_network_packets() {
 
                     if (global.lighting) {
                         global.lighting->on_block_set(x, y, z, block_id);
-                        global.lighting->solve();
+                        needs_light_solve = true;
                     }
                 }
                 break;
@@ -432,9 +459,54 @@ void StateGame::process_network_packets() {
                 }
                 break;
             }
+            case PacketType::ChunkData: {
+                int32_t cx = packet.read<int32_t>();
+                int32_t cy = packet.read<int32_t>();
+                int32_t cz = packet.read<int32_t>();
+                uint32_t size = packet.read<uint32_t>();
+
+                std::vector<uint8_t> voxel_data(size);
+                for (uint32_t i = 0; i < size; i++) {
+                    voxel_data[i] = packet.read<uint8_t>();
+                }
+
+                ChunkPos pos{cx, cy, cz};
+                auto *level = global.ecs->level.get();
+                
+                if (level->chunks.find(pos) == level->chunks.end()) {
+                    level->chunks[pos] = std::make_unique<Chunk>(cx, cy, cz);
+                }
+
+                auto *chunk = level->chunks[pos].get();
+                std::memcpy(chunk->voxels.get(), voxel_data.data(), Chunk::VOLUME);
+                chunk->decorated = true;
+                chunk->modified = true;
+
+                for (int oy = -1; oy <= 1; oy++) {
+                    for (int oz = -1; oz <= 1; oz++) {
+                        for (int ox = -1; ox <= 1; ox++) {
+                            auto *neighbor = level->get_chunk(cx + ox, cy + oy, cz + oz);
+                            if (neighbor) {
+                                neighbor->modified = true;
+                                level->meshes.erase(ChunkPos{cx + ox, cy + oy, cz + oz});
+                            }
+                        }
+                    }
+                }
+
+                if (global.lighting) {
+                    global.lighting->on_chunk_loaded(cx, cy, cz);
+                    needs_light_solve = true;
+                }
+                break;
+            }    
             default:
                 break;
         }
+    }
+
+    if (needs_light_solve && global.lighting) {
+        global.lighting->solve();
     }
 }
 
@@ -547,11 +619,11 @@ void StateGame::render() {
             model->draw();
         };
 
-        draw_part(torso,      glm::vec3(0.0f, 0.45f, 0.0f),  0.0f,               false, false);
-        draw_part(head,       glm::vec3(0.0f, 1.10f, 0.0f),  0.0f,               false, false);
-        draw_part(left_hand,  glm::vec3(-0.25f, 1.05f, 0.0f), limbs.left_hand,  false, true);
+        draw_part(torso, glm::vec3(0.0f, 0.45f, 0.0f), 0.0f, false, false);
+        draw_part(head, glm::vec3(0.0f, 1.10f, 0.0f), 0.0f, false, false);
+        draw_part(left_hand, glm::vec3(-0.25f, 1.05f, 0.0f), limbs.left_hand,  false, true);
         draw_part(right_hand, glm::vec3( 0.25f, 1.05f, 0.0f), limbs.right_hand, false, true);
-        draw_part(left_foot,  glm::vec3(-0.08f, 0.22f, 0.0f), limbs.left_foot,  true,  false);
+        draw_part(left_foot, glm::vec3(-0.08f, 0.22f, 0.0f), limbs.left_foot,  true,  false);
         draw_part(right_foot, glm::vec3( 0.08f, 0.22f, 0.0f), limbs.right_foot, true,  false);
     }
 
@@ -654,12 +726,21 @@ void StateGame::update() {
     auto current_chunk_y = static_cast<int>(std::floor(camera->position.y / Chunk::HEIGHT));
     auto current_chunk_z = static_cast<int>(std::floor(camera->position.z / Chunk::DEPTH));
 
+    auto request_chunk = [this](int x, int y, int z) {
+        if (server_conn && server_conn->is_open()) {
+            Packet req(PacketType::ChunkRequest);
+            req.write<int32_t>(x);
+            req.write<int32_t>(y);
+            req.write<int32_t>(z);
+            server_conn->send_packet(req);
+        }
+    };
+
     level->ensure_loaded_around(
         current_chunk_x, current_chunk_y, current_chunk_z,
-        2, global.world_files.get()
+        2, global.world_files.get(), request_chunk
     );
 
-    level->decorate_visible(player_positions);
     level->build_meshes(renderer.get(), player_positions);
 
     if (wnd->grabbed && !show_inventory) {

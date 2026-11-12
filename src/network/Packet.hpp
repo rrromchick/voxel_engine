@@ -18,6 +18,8 @@ enum class PacketType : uint8_t {
     EntityDespawn = 6,
     EntityAttack = 7,
     InventorySync = 8,
+    ChunkRequest = 9,
+    ChunkData = 10,
 };
 
 struct Packet {

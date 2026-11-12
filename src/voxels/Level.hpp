@@ -7,6 +7,7 @@
 #include <cmath>
 #include <optional>
 #include <unordered_map>
+#include <functional>
 #include <glm/vec3.hpp>
 
 #include "Chunk.hpp"
@@ -60,7 +61,6 @@ struct Level {
     bool set_voxel(int world_x, int world_y, int world_z, uint8_t block_id);
     void set(int world_x, int world_y, int world_z, uint8_t block_id);
 
-    bool load_visible(WorldFiles *world_files, const std::vector<glm::vec3> &player_positions);
     bool decorate_visible(const std::vector<glm::vec3> &player_positions);
     bool build_meshes(VoxelRenderer *renderer, const std::vector<glm::vec3> &player_positions);
 
@@ -70,6 +70,8 @@ struct Level {
 
     std::optional<RaycastHit> raycast(const glm::vec3 &origin, const glm::vec3 &dir, float max_distance) const;
 
-    void ensure_loaded_around(int cx, int cy, int cz, int radius, WorldFiles *world_files);
+    void ensure_loaded_around(int cx, int cy, int cz, int radius, WorldFiles *world_files, 
+        std::function<void(int, int, int)> on_chunk_request = nullptr);
+
     void unload_distant_chunks(const std::vector<glm::vec3> &player_positions, int max_chunk_distance);
 };

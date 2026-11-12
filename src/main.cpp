@@ -595,6 +595,71 @@ void process_client_packet(const std::shared_ptr<Connection> &client, Packet &pa
             }
             break;
         }
+        case PacketType::ChunkRequest: {
+            int32_t cx = packet.read<int32_t>();
+            int32_t cy = packet.read<int32_t>();
+            int32_t cz = packet.read<int32_t>();
+
+            ChunkPos pos{cx, cy, cz};
+            auto *level = global.ecs->level.get();
+            auto *chunk = level->get_chunk(cx, cy, cz);
+
+            auto ensure_base_chunk = [&](int x, int y, int z) -> Chunk* {
+                ChunkPos p{x, y, z};
+                Chunk *c = level->get_chunk(x, y, z);
+                if (!c) {
+                    auto new_c = std::make_unique<Chunk>(x, y, z);
+                    std::span<uint8_t> voxel_span{ reinterpret_cast<uint8_t*>(new_c->voxels.get()), Chunk::VOLUME };
+                    if (global.world_files && global.world_files->get_chunk(x, y, z, voxel_span)) {
+                        new_c->decorated = true;
+                    } else {
+                        global.generator->generate_terrain(new_c.get());
+                        global.generator->carve_caves(new_c.get());
+                        new_c->decorated = false;
+                    }
+                    level->chunks[p] = std::move(new_c);
+                    c = level->get_chunk(x, y, z);
+                }
+                return c;
+            };
+
+            chunk = ensure_base_chunk(cx, cy, cz);
+
+            if (chunk && !chunk->decorated) {
+                std::vector<Chunk*> closes(27, nullptr);
+                for (int oy = -1; oy <= 1; oy++) {
+                    for (int oz = -1; oz <= 1; oz++) {
+                        for (int ox = -1; ox <= 1; ox++) {
+                            closes[((oy + 1) * 3 + (oz + 1)) * 3 + (ox + 1)] = 
+                                ensure_base_chunk(cx + ox, cy + oy, cz + oz);
+                        }
+                    }
+                }
+                global.generator->decorate(chunk, closes);
+                chunk->decorated = true;
+                chunk->modified = false; 
+            }
+
+            if (chunk) {
+                Packet data_packet(PacketType::ChunkData);
+                data_packet.write<int32_t>(cx);
+                data_packet.write<int32_t>(cy);
+                data_packet.write<int32_t>(cz);
+
+                std::span<const uint8_t> voxel_span { 
+                    reinterpret_cast<const uint8_t*>(chunk->voxels.get()), 
+                    Chunk::VOLUME 
+                };
+
+                data_packet.write<uint32_t>(static_cast<uint32_t>(voxel_span.size()));
+                for (uint8_t byte : voxel_span) {
+                    data_packet.write<uint8_t>(byte);
+                }
+
+                client->send_packet(data_packet);
+            }
+            break;
+        }        
         default:
             break;
     }
@@ -701,10 +766,6 @@ int main(int argc, char *argv[]) {
                         2,
                         global.world_files.get());
                 }
-            }
-
-            if (!player_positions.empty()) {
-                global.ecs->level->decorate_visible(player_positions);
             }
 
             dt = std::min<float>(dt, 0.05f);

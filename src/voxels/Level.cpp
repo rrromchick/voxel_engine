@@ -52,33 +52,39 @@ void Level::set(int world_x, int world_y, int world_z, uint8_t block_id) {
     set_voxel(world_x, world_y, world_z, block_id);
 }
 
-void Level::ensure_loaded_around(int cx, int cy, int cz, int radius, WorldFiles *world_files) {
+void Level::ensure_loaded_around(
+    int cx, int cy, int cz, int radius, WorldFiles *world_files, 
+    std::function<void(int, int, int)> on_chunk_request) {
     int loaded_this_frame = 0;
-    constexpr int max_loads_per_frame = 4;
+    const int max_loads_per_frame = on_chunk_request ? 8 : 4;
 
     for (int y = cy - radius; y <= cy + radius; ++y) {
         for (int z = cz - radius; z <= cz + radius; ++z) {
             for (int x = cx - radius; x <= cx + radius; ++x) {
                 ChunkPos pos{x, y, z};
                 if (chunks.find(pos) == chunks.end()) {
-                    if (loaded_this_frame >= max_loads_per_frame) return;
+                    if (loaded_this_frame >= max_loads_per_frame) continue;
 
                     auto chunk = std::make_unique<Chunk>(x, y, z);
-
-                    std::span<uint8_t> voxel_span{ reinterpret_cast<uint8_t*>(chunk->voxels.get()), Chunk::VOLUME };
-
-                    if (world_files && world_files->get_chunk(x, y, z, voxel_span)) {
-                        chunk->decorated = true;
-                    } else {
-                        global.generator->generate_terrain(chunk.get());
-                        global.generator->carve_caves(chunk.get());
-                        chunk->decorated = false;
-                    }
-
                     chunks[pos] = std::move(chunk);
 
-                    if (global.lighting) {
-                        global.lighting->on_chunk_loaded(x, y, z);
+                    if (on_chunk_request) {
+                        on_chunk_request(x, y, z);
+                    } else {
+                        std::span<uint8_t> voxel_span { reinterpret_cast<uint8_t*>(chunks[pos]->voxels.get()), Chunk::VOLUME };
+
+                        if (world_files && world_files->get_chunk(x, y, z, voxel_span)) {
+                            chunks[pos]->decorated = true;
+                        } else {
+                            global.generator->generate_terrain(chunks[pos].get());
+                            global.generator->carve_caves(chunks[pos].get());
+                            chunks[pos]->decorated = false;
+                        }
+
+                        if (global.lighting) {
+                            global.lighting->on_chunk_loaded(x, y, z);
+                            global.lighting->solve();
+                        }
                     }
 
                     loaded_this_frame++;
@@ -220,6 +226,7 @@ bool Level::build_meshes(VoxelRenderer *renderer, const std::vector<glm::vec3> &
 
     for (const auto &[pos, chunk] : chunks) {
         if (!chunk) continue;
+        if (!chunk->decorated) continue;
 
         auto mesh_it = meshes.find(pos);
         if (mesh_it != meshes.end() && !chunk->modified) continue;
