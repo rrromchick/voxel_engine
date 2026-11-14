@@ -383,34 +383,47 @@ void StateGame::process_network_packets() {
                 if (global.ecs->level) {
                     global.ecs->level->set(x, y, z, block_id);
 
-                    auto* level = global.ecs->level.get();
-                    auto* chunk = level->get_chunk_by_voxel(x, y, z);
-                    if (chunk) {
-                        chunk->modified = true;
+                    int cx = static_cast<int>(std::floor(static_cast<float>(x) / Chunk::WIDTH));
+                    int cy = static_cast<int>(std::floor(static_cast<float>(y) / Chunk::HEIGHT));
+                    int cz = static_cast<int>(std::floor(static_cast<float>(z) / Chunk::DEPTH));
 
-                        int lx = (x % Chunk::WIDTH + Chunk::WIDTH) % Chunk::WIDTH;
-                        int ly = (y % Chunk::HEIGHT + Chunk::HEIGHT) % Chunk::HEIGHT;
-                        int lz = (z % Chunk::DEPTH + Chunk::DEPTH) % Chunk::DEPTH;
+                    int lx = (x % Chunk::WIDTH + Chunk::WIDTH) % Chunk::WIDTH;
+                    int ly = (y % Chunk::HEIGHT + Chunk::HEIGHT) % Chunk::HEIGHT;
+                    int lz = (z % Chunk::DEPTH + Chunk::DEPTH) % Chunk::DEPTH;
 
-                        auto invalidate_neighbor = [&](int nx, int ny, int nz) {
-                            auto* n_chunk = level->get_chunk_by_voxel(nx, ny, nz);
-                            if (n_chunk) {
-                                n_chunk->modified = true;
-                                level->meshes.erase(ChunkPos{ n_chunk->x, n_chunk->y, n_chunk->z });
-                            }
-                        };
-
-                        if (lx == 0) invalidate_neighbor(x - 1, y, z);
-                        if (lx == Chunk::WIDTH - 1) invalidate_neighbor(x + 1, y, z);
-                        if (ly == 0) invalidate_neighbor(x, y - 1, z);
-                        if (ly == Chunk::HEIGHT - 1) invalidate_neighbor(x, y + 1, z);
-                        if (lz == 0) invalidate_neighbor(x, y, z - 1);
-                        if (lz == Chunk::DEPTH - 1) invalidate_neighbor(x, y, z + 1);
+                    auto* central_chunk = global.ecs->level->get_chunk(cx, cy, cz);
+                    if (central_chunk) {
+                        central_chunk->modified = true;
                     }
+
+                    auto invalidate_neighbor = [&](int ox, int oy, int oz) {
+                        auto* n_chunk = global.ecs->level->get_chunk(cx + ox, cy + oy, cz + oz);
+                        if (n_chunk) {
+                            n_chunk->modified = true;
+                        }
+                    };
+
+                    if (lx == 0) invalidate_neighbor(-1, 0, 0);
+                    if (lx == Chunk::WIDTH - 1) invalidate_neighbor(1, 0, 0);
+                    if (ly == 0) invalidate_neighbor(0, -1, 0);
+                    if (ly == Chunk::HEIGHT - 1) invalidate_neighbor(0, 1, 0);
+                    if (lz == 0) invalidate_neighbor(0, 0, -1);
+                    if (lz == Chunk::DEPTH - 1) invalidate_neighbor(0, 0, 1);
 
                     if (global.lighting) {
                         global.lighting->on_block_set(x, y, z, block_id);
                         global.lighting->solve();
+                    }
+                }
+
+                uint32_t player_id = has_spawned ? local_player_id : 0;
+                ECS::Object player_obj { global.ecs.get(), static_cast<EntityId>(player_id) };
+                if (player_obj.is_valid() && player_obj.has<InventoryComponent>()) {
+                    auto &inv = player_obj.get<InventoryComponent>();
+                    if (block_id == 0) {                    
+                        // AIR block
+                    } else {
+                        inv.consume_active_item();
                     }
                 }
                 break;

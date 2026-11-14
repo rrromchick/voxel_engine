@@ -68,7 +68,8 @@ void Lighting::on_chunk_loaded(int cx, int cy, int cz) {
 
                         auto *vox = &(current->voxels[(y * Chunk::DEPTH + z) * Chunk::WIDTH + x]);
                         auto *block = global.blocks[vox->id].get();
-                        if (!block || !block->light_passing) {
+
+                        if (!block || !block->light_passing || block->obstacle) {
                             break;
                         }
 
@@ -107,7 +108,8 @@ void Lighting::on_chunk_loaded(int cx, int cy, int cz) {
 
                         auto *vox = &(current->voxels[(y * Chunk::DEPTH + z) * Chunk::WIDTH + x]);
                         auto *block = global.blocks[vox->id].get();
-                        if (!block || !block->light_passing) {
+
+                        if (!block || !block->light_passing || block->obstacle) {
                             break;
                         }
                         current->lightmap->set_s(x, y, z, 15);
@@ -141,7 +143,7 @@ void Lighting::on_chunk_loaded(int cx, int cy, int cz) {
                     
                     auto *vox = &(current->voxels[(y * Chunk::DEPTH + z) * Chunk::WIDTH + x]);
                     auto *block = global.blocks[vox->id].get();
-                    if (!block || !block->light_passing) {
+                    if (!block || !block->light_passing || block->obstacle) {
                         break;
                     }
                     current->lightmap->set_s(x, y, z, 15);

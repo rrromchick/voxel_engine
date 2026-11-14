@@ -64,12 +64,11 @@ void Level::ensure_loaded_around(int cx, int cy, int cz, int radius, WorldFiles 
                     if (loaded_this_frame >= max_loads_per_frame) return;
 
                     auto chunk = std::make_unique<Chunk>(x, y, z);
-
                     std::span<uint8_t> voxel_span{ reinterpret_cast<uint8_t*>(chunk->voxels.get()), Chunk::VOLUME };
 
                     if (world_files && world_files->get_chunk(x, y, z, voxel_span)) {
                         chunk->decorated = true;
-                        chunk->modified = false;
+                        chunk->modified = false; 
                     } else {
                         global.generator->generate_terrain(chunk.get());
                         global.generator->carve_caves(chunk.get());
@@ -78,6 +77,21 @@ void Level::ensure_loaded_around(int cx, int cy, int cz, int radius, WorldFiles 
                     }
 
                     chunks[pos] = std::move(chunk);
+
+                    for (int oy = -1; oy <= 1; oy++) {
+                        for (int oz = -1; oz <= 1; oz++) {
+                            for (int ox = -1; ox <= 1; ox++) {
+                                if (ox == 0 && oy == 0 && oz == 0) continue;
+                                ChunkPos neighbor_pos{ x + ox, y + oy, z + oz };
+                                
+                                auto it = chunks.find(neighbor_pos);
+                                if (it != chunks.end() && it->second) {
+                                    it->second->modified = true;
+                                    meshes.erase(neighbor_pos);
+                                }
+                            }
+                        }
+                    }
 
                     if (global.lighting) {
                         global.lighting->on_chunk_loaded(x, y, z);

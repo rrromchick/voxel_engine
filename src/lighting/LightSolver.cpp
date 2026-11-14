@@ -121,7 +121,8 @@ void LightSolver::solve() {
                 auto *block = global.blocks[v->id].get();
 
                 auto light = level->get_light(x, y, z, channel);
-                if (block && block->light_passing && light < entry.light - 1) {
+
+                if (block && block->light_passing && !block->obstacle && light < entry.light - 1) {
                     chunk->lightmap->set(
                         x - chunk->x * Chunk::WIDTH,
                         y - chunk->y * Chunk::HEIGHT, 
