@@ -17,6 +17,10 @@
 #include <cmath>
 #include <span>
 #include <cstring>
+#include <csignal>
+#include <atomic>
+#include <mutex>
+#include <condition_variable>
 
 Global global;
 
@@ -28,6 +32,154 @@ struct PlayerSessionInfo {
 static std::unordered_map<uint32_t, PlayerSessionInfo> entity_to_session;
 static std::unordered_map<uint32_t, float> knockback_timers;
 static Database server_db("world_data.db");
+
+static std::atomic<bool> server_running{ true };
+static std::thread save_thread;
+static std::mutex save_mutex;
+static std::condition_variable save_cv;
+static bool save_requested = false;
+
+struct ChunkSaveTask {
+    std::vector<uint8_t> voxels;
+    int x, y, z;
+};
+static std::vector<ChunkSaveTask> save_queue;
+
+static void save_player_session(uint32_t entity_id, ECS::Object &player_entity) {
+    if (!player_entity.has<TransformComponent>() || !player_entity.has<HealthComponent>()) return;
+
+    if (entity_to_session.find(entity_id) != entity_to_session.end()) {
+        PlayerData data;
+        data.id = entity_to_session[entity_id].db_id;
+        data.username = entity_to_session[entity_id].username;
+        data.position = player_entity.get<TransformComponent>().position;
+        data.health = player_entity.get<HealthComponent>().health;
+
+        if (player_entity.has<InventoryComponent>()) {
+            data.inventory_raw = player_entity.get<InventoryComponent>().serialize_inventory();
+            data.selected_slot = player_entity.get<InventoryComponent>().selected_slot;
+        }
+        
+        if (server_db.save_player(data)) {
+            std::cout << "[Server] Successfully saved position (" 
+                << data.position.x << ", " << data.position.y << ", " << data.position.z 
+                << ") for user: " << data.username << std::endl;
+        } else {
+            std::cerr << "[Server Error] Failed to save player data for user: " << data.username << std::endl;
+        }
+    }
+}
+
+static void async_save_worker() {
+    while (server_running || save_requested) {
+        std::vector<ChunkSaveTask> local_queue;
+        {
+            std::unique_lock<std::mutex> lock(save_mutex);
+            save_cv.wait(lock, [] { return save_requested || !server_running; });
+            
+            if (!save_queue.empty()) {
+                local_queue = std::move(save_queue);
+                save_queue.clear();
+            }
+            save_requested = false;
+        }
+
+        if (!local_queue.empty()) {
+            std::cout << "[Save Thread] Compression start. Processing " << local_queue.size() << " chunks safely...\n";
+            for (const auto &task : local_queue) {
+                if (global.world_files) {
+                    global.world_files->put(task.voxels, task.x, task.y, task.z);
+                }
+            }
+            if (global.world_files) {
+                global.world_files->write();
+            }
+            std::cout << "[Save Thread] Backup completed and written to regions.\n";
+        }
+
+        if (!server_running && save_queue.empty() && !save_requested) {
+            break;
+        }
+    }
+}
+
+static void trigger_async_save(bool force_all = false) {
+    if (!global.ecs || !global.ecs->level) return;
+
+    std::vector<ChunkSaveTask> snapshot;
+
+    for (auto &[pos, chunk] : global.ecs->level->chunks) {
+        if (chunk && (chunk->modified || force_all)) {
+            ChunkSaveTask task;
+            task.x = chunk->x;
+            task.y = chunk->y;
+            task.z = chunk->z;
+            task.voxels.resize(Chunk::VOLUME);
+            std::memcpy(task.voxels.data(), chunk->voxels.get(), Chunk::VOLUME);
+            
+            snapshot.push_back(std::move(task));
+            chunk->modified = false;
+        }
+    }
+
+    if (!snapshot.empty()) {
+        std::lock_guard<std::mutex> lock(save_mutex);
+        save_queue = std::move(snapshot);
+        save_requested = true;
+        save_cv.notify_one();
+    }
+}
+
+static void handle_signal(int signal) {
+    if (signal == SIGINT || signal == SIGTERM) {
+        std::cout << "\n[Server] Interruption signal received (" << signal << "). Graceful shutdown initiated...\n";
+        server_running = false;
+        save_cv.notify_one();
+    }
+}
+
+#ifdef _WIN32
+#include <windows.h>
+
+static BOOL WINAPI handle_windows_ctrl(DWORD ctrl_type) {
+    if (ctrl_type == CTRL_C_EVENT || ctrl_type == CTRL_CLOSE_EVENT) {
+        std::cout << "\n[Server] OS exit event detected. Capturing world delta state...\n";
+        server_running = false;
+
+        if (global.ecs && global.ecs->level) {
+            for (std::size_t i = 0; i < global.ecs->size; i++) {
+                ECS::Object obj { global.ecs.get(), static_cast<EntityId>(i) };
+                if (obj.is_valid() && obj.has<TransformComponent>() && obj.has<HealthComponent>()) {
+                    save_player_session(static_cast<uint32_t>(obj.id), obj);
+                }
+            }
+            trigger_async_save(true);
+        }
+        
+        save_cv.notify_one();
+
+        std::this_thread::sleep_for(std::chrono::milliseconds(950));
+        return TRUE;
+    }
+    return FALSE;
+}
+#endif
+
+static void save_all_chunks_and_players() {
+    if (global.ecs) {
+        for (std::size_t i = 0; i < global.ecs->size; i++) {
+            ECS::Object obj { global.ecs.get(), static_cast<EntityId>(i) };
+            if (obj.is_valid() && obj.has<TransformComponent>() && obj.has<HealthComponent>()) {
+                uint32_t entity_id = static_cast<uint32_t>(obj.id);
+                save_player_session(entity_id, obj);
+            }
+        }
+    }
+
+    std::cout << "[Server] Creating final thread-safe snapshot of all modified chunks...\n";
+    trigger_async_save(true); 
+}
+
 
 static void setup_server_definitions() {
     global.blocks[BlockId::AIR] = std::make_unique<Block>(BlockId::AIR, 0);
@@ -93,31 +245,6 @@ void broadcast_packet_all(Packet &packet) {
     for (const auto &server : global.network->get_servers()) {
         for (const auto &client : server->get_clients()) {
             client->send_packet(packet);
-        }
-    }
-}
-
-static void save_player_session(uint32_t entity_id, ECS::Object &player_entity) {
-    if (!player_entity.has<TransformComponent>() || !player_entity.has<HealthComponent>()) return;
-
-    if (entity_to_session.find(entity_id) != entity_to_session.end()) {
-        PlayerData data;
-        data.id = entity_to_session[entity_id].db_id;
-        data.username = entity_to_session[entity_id].username;
-        data.position = player_entity.get<TransformComponent>().position;
-        data.health = player_entity.get<HealthComponent>().health;
-
-        if (player_entity.has<InventoryComponent>()) {
-            data.inventory_raw = player_entity.get<InventoryComponent>().serialize_inventory();
-            data.selected_slot = player_entity.get<InventoryComponent>().selected_slot;
-        }
-        
-        if (server_db.save_player(data)) {
-            std::cout << "[Server] Successfully saved position (" 
-                << data.position.x << ", " << data.position.y << ", " << data.position.z 
-                << ") for user: " << data.username << std::endl;
-        } else {
-            std::cerr << "[Server Error] Failed to save player data for user: " << data.username << std::endl;
         }
     }
 }
@@ -492,14 +619,13 @@ void process_client_packet(const std::shared_ptr<Connection> &client, Packet &pa
                         global.lighting->solve(); 
                     }
                 }
+                Packet packet_modify(PacketType::BlockModify);
+                packet_modify.write<int32_t>(x);
+                packet_modify.write<int32_t>(y);
+                packet_modify.write<int32_t>(z);
+                packet_modify.write<uint8_t>(block_id);
 
-                Packet broadcast_modify(PacketType::BlockModify);
-                broadcast_modify.write<int32_t>(x);
-                broadcast_modify.write<int32_t>(y);
-                broadcast_modify.write<int32_t>(z);
-                broadcast_modify.write<uint8_t>(block_id);
-
-                broadcast_packet_all(broadcast_modify);
+                broadcast_packet_all(packet_modify);
             }
 
             uint32_t player_id = static_cast<uint32_t>(reinterpret_cast<uintptr_t>(client->get_user_data())) - 1;
@@ -595,80 +721,20 @@ void process_client_packet(const std::shared_ptr<Connection> &client, Packet &pa
             }
             break;
         }
-        case PacketType::ChunkRequest: {
-            int32_t cx = packet.read<int32_t>();
-            int32_t cy = packet.read<int32_t>();
-            int32_t cz = packet.read<int32_t>();
-
-            ChunkPos pos{cx, cy, cz};
-            auto *level = global.ecs->level.get();
-            auto *chunk = level->get_chunk(cx, cy, cz);
-
-            auto ensure_base_chunk = [&](int x, int y, int z) -> Chunk* {
-                ChunkPos p{x, y, z};
-                Chunk *c = level->get_chunk(x, y, z);
-                if (!c) {
-                    auto new_c = std::make_unique<Chunk>(x, y, z);
-                    std::span<uint8_t> voxel_span{ reinterpret_cast<uint8_t*>(new_c->voxels.get()), Chunk::VOLUME };
-                    if (global.world_files && global.world_files->get_chunk(x, y, z, voxel_span)) {
-                        new_c->decorated = true;
-                    } else {
-                        global.generator->generate_terrain(new_c.get());
-                        global.generator->carve_caves(new_c.get());
-                        new_c->decorated = false;
-                    }
-                    level->chunks[p] = std::move(new_c);
-                    c = level->get_chunk(x, y, z);
-                }
-                return c;
-            };
-
-            chunk = ensure_base_chunk(cx, cy, cz);
-
-            if (chunk && !chunk->decorated) {
-                std::vector<Chunk*> closes(27, nullptr);
-                for (int oy = -1; oy <= 1; oy++) {
-                    for (int oz = -1; oz <= 1; oz++) {
-                        for (int ox = -1; ox <= 1; ox++) {
-                            closes[((oy + 1) * 3 + (oz + 1)) * 3 + (ox + 1)] = 
-                                ensure_base_chunk(cx + ox, cy + oy, cz + oz);
-                        }
-                    }
-                }
-                global.generator->decorate(chunk, closes);
-                chunk->decorated = true;
-                chunk->modified = false; 
-            }
-
-            if (chunk) {
-                Packet data_packet(PacketType::ChunkData);
-                data_packet.write<int32_t>(cx);
-                data_packet.write<int32_t>(cy);
-                data_packet.write<int32_t>(cz);
-
-                std::span<const uint8_t> voxel_span { 
-                    reinterpret_cast<const uint8_t*>(chunk->voxels.get()), 
-                    Chunk::VOLUME 
-                };
-
-                data_packet.write<uint32_t>(static_cast<uint32_t>(voxel_span.size()));
-                for (uint8_t byte : voxel_span) {
-                    data_packet.write<uint8_t>(byte);
-                }
-
-                client->send_packet(data_packet);
-            }
-            break;
-        }        
         default:
             break;
     }
 }
-
 int main(int argc, char *argv[]) {
 #ifdef _WIN32
     WSADATA wsa;
     WSAStartup(MAKEWORD(2, 2), &wsa);
+#endif
+
+    std::signal(SIGINT, handle_signal);
+    std::signal(SIGTERM, handle_signal);
+#ifdef _WIN32
+    SetConsoleCtrlHandler(handle_windows_ctrl, TRUE);
 #endif
 
     global.time = std::make_unique<Time>([]() -> uint64_t {
@@ -716,6 +782,7 @@ int main(int argc, char *argv[]) {
     }
 
     std::cout << "[Server] Listening on port 8080...\n";
+    save_thread = std::thread(async_save_worker);
 
     constexpr uint64_t TARGET_TPS = 20;
     constexpr uint64_t NANOS_PER_TICK = (Time::NANOS_PER_SECOND / TARGET_TPS);
@@ -724,7 +791,7 @@ int main(int argc, char *argv[]) {
     constexpr uint64_t SAVE_INTERVAL_NANOS = 30ULL * Time::NANOS_PER_SECOND;
     uint64_t last_save_time = global.time->now();
 
-    while (server->is_open()) {
+    while (server->is_open() && server_running) {
         uint64_t current_time = global.time->now();
         uint64_t elapsed = current_time - last_tick_time;
 
@@ -766,6 +833,10 @@ int main(int argc, char *argv[]) {
                         2,
                         global.world_files.get());
                 }
+            }
+
+            if (!player_positions.empty()) {
+                global.ecs->level->decorate_visible(player_positions);
             }
 
             dt = std::min<float>(dt, 0.05f);
@@ -839,50 +910,23 @@ int main(int argc, char *argv[]) {
                     }
                 }
 
-                if (global.ecs && global.ecs->level && global.world_files) {
-                    for (auto &[pos, chunk] : global.ecs->level->chunks) {
-                        if (chunk && chunk->modified) {
-                            std::span<const uint8_t> voxel_span{ 
-                                reinterpret_cast<const uint8_t*>(chunk->voxels.get()), 
-                                Chunk::VOLUME 
-                            };
-                            global.world_files->put(voxel_span, chunk->x, chunk->y, chunk->z);
-                            chunk->modified = false;
-                        }
-                    }
-                    global.world_files->write();
-                }
+                trigger_async_save(false);
             }
             std::this_thread::sleep_for(std::chrono::milliseconds(1));
         }
     }
 
-    if (global.ecs) {
-        for (std::size_t i = 0; i < global.ecs->size; i++) {
-            ECS::Object obj { global.ecs.get(), static_cast<EntityId>(i) };
-            if (obj.is_valid() && obj.has<TransformComponent>() && obj.has<HealthComponent>()) {
-                uint32_t entity_id = static_cast<uint32_t>(obj.id);
-                save_player_session(entity_id, obj);
-            }
-        }
-    }
+    save_all_chunks_and_players();
 
-    if (global.ecs && global.ecs->level && global.world_files) {
-        for (auto &[pos, chunk] : global.ecs->level->chunks) {
-            if (chunk) {
-                std::span<const uint8_t> voxel_span{ 
-                    reinterpret_cast<const uint8_t*>(chunk->voxels.get()), 
-                    Chunk::VOLUME 
-                };
-                global.world_files->put(voxel_span, pos.x, pos.y, pos.z);
-            }
-        }
-        global.world_files->write();
+    if (save_thread.joinable()) {
+        save_cv.notify_one(); 
+        save_thread.join();
     }
 
 #ifdef _WIN32   
     WSACleanup();
 #endif
 
+    std::cout << "[Server] Process destroyed cleanly.\n";
     return 0;
 }

@@ -52,39 +52,35 @@ void Level::set(int world_x, int world_y, int world_z, uint8_t block_id) {
     set_voxel(world_x, world_y, world_z, block_id);
 }
 
-void Level::ensure_loaded_around(
-    int cx, int cy, int cz, int radius, WorldFiles *world_files, 
-    std::function<void(int, int, int)> on_chunk_request) {
+void Level::ensure_loaded_around(int cx, int cy, int cz, int radius, WorldFiles *world_files) {
     int loaded_this_frame = 0;
-    const int max_loads_per_frame = on_chunk_request ? 8 : 4;
+    constexpr int max_loads_per_frame = 4;
 
     for (int y = cy - radius; y <= cy + radius; ++y) {
         for (int z = cz - radius; z <= cz + radius; ++z) {
             for (int x = cx - radius; x <= cx + radius; ++x) {
                 ChunkPos pos{x, y, z};
                 if (chunks.find(pos) == chunks.end()) {
-                    if (loaded_this_frame >= max_loads_per_frame) continue;
+                    if (loaded_this_frame >= max_loads_per_frame) return;
 
                     auto chunk = std::make_unique<Chunk>(x, y, z);
+
+                    std::span<uint8_t> voxel_span{ reinterpret_cast<uint8_t*>(chunk->voxels.get()), Chunk::VOLUME };
+
+                    if (world_files && world_files->get_chunk(x, y, z, voxel_span)) {
+                        chunk->decorated = true;
+                        chunk->modified = false;
+                    } else {
+                        global.generator->generate_terrain(chunk.get());
+                        global.generator->carve_caves(chunk.get());
+                        chunk->decorated = false;
+                        chunk->modified = true;
+                    }
+
                     chunks[pos] = std::move(chunk);
 
-                    if (on_chunk_request) {
-                        on_chunk_request(x, y, z);
-                    } else {
-                        std::span<uint8_t> voxel_span { reinterpret_cast<uint8_t*>(chunks[pos]->voxels.get()), Chunk::VOLUME };
-
-                        if (world_files && world_files->get_chunk(x, y, z, voxel_span)) {
-                            chunks[pos]->decorated = true;
-                        } else {
-                            global.generator->generate_terrain(chunks[pos].get());
-                            global.generator->carve_caves(chunks[pos].get());
-                            chunks[pos]->decorated = false;
-                        }
-
-                        if (global.lighting) {
-                            global.lighting->on_chunk_loaded(x, y, z);
-                            global.lighting->solve();
-                        }
+                    if (global.lighting) {
+                        global.lighting->on_chunk_loaded(x, y, z);
                     }
 
                     loaded_this_frame++;
@@ -166,19 +162,6 @@ bool Level::decorate_visible(const std::vector<glm::vec3> &player_positions) {
     for (const auto &[pos, chunk] : chunks) {
         if (!chunk || chunk->decorated) continue;
 
-        bool has_all_neighbors = true;
-        for (int oy = -1; oy <= 1 && has_all_neighbors; oy++) {
-            for (int oz = -1; oz <= 1 && has_all_neighbors; oz++) {
-                for (int ox = -1; ox <= 1 && has_all_neighbors; ox++) {
-                    if (!get_chunk(pos.x + ox, pos.y + oy, pos.z + oz)) {
-                        has_all_neighbors = false;
-                    }
-                }
-            }
-        }
-
-        if (!has_all_neighbors) continue;
-
         for (const auto &p : player_positions) {
             float dx = (pos.x * Chunk::WIDTH) - p.x;
             float dy = (pos.y * Chunk::HEIGHT) - p.y;
@@ -196,25 +179,11 @@ bool Level::decorate_visible(const std::vector<glm::vec3> &player_positions) {
     if (!found) return false;
 
     auto *chunk = get_chunk(target_pos.x, target_pos.y, target_pos.z);
-    std::vector<Chunk*> closes(27, nullptr);
+    if (!chunk) return false;
 
-    for (int oy_off = -1; oy_off <= 1; oy_off++) {
-        for (int oz_off = -1; oz_off <= 1; oz_off++) {
-            for (int ox_off = -1; ox_off <= 1; ox_off++) {
-                closes[((oy_off + 1) * 3 + (oz_off + 1)) * 3 + (ox_off + 1)] = 
-                    get_chunk(target_pos.x + ox_off, target_pos.y + oy_off, target_pos.z + oz_off);
-            }
-        }
-    }
-
-    global.generator->decorate(chunk, closes);
+    global.generator->decorate(chunk);
     chunk->decorated = true;
-
-    for (auto *neighbor : closes) {
-        if (neighbor) {
-            neighbor->modified = true;
-        }
-    }
+    chunk->modified = true; 
 
     return true;
 }
@@ -226,7 +195,6 @@ bool Level::build_meshes(VoxelRenderer *renderer, const std::vector<glm::vec3> &
 
     for (const auto &[pos, chunk] : chunks) {
         if (!chunk) continue;
-        if (!chunk->decorated) continue;
 
         auto mesh_it = meshes.find(pos);
         if (mesh_it != meshes.end() && !chunk->modified) continue;

@@ -20,7 +20,7 @@ bool Database::init() {
     const char *create_table_sql =
         "CREATE TABLE IF NOT EXISTS players ("
         "id INTEGER PRIMARY KEY AUTOINCREMENT,"
-        "username TEXT NOT NULL,"
+        "username TEXT NOT NULL UNIQUE,"
         "password_hash TEXT NOT NULL,"
         "pos_x REAL NOT NULL DEFAULT 32.0,"
         "pos_y REAL NOT NULL DEFAULT 120.0,"

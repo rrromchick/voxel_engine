@@ -1,8 +1,7 @@
 #include "Lightmap.hpp"
+#include <cstring>
 
 Lightmap::Lightmap() {
     map = std::make_unique<unsigned short[]>(Chunk::VOLUME);
-    for (std::size_t i = 0; i < Chunk::VOLUME; i++) {
-        map[i] = 0x0000;
-    }
+    std::memset(map.get(), 0, Chunk::VOLUME * sizeof(unsigned short));
 }
