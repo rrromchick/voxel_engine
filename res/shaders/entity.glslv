@@ -15,11 +15,13 @@ uniform float u_gamma;
 uniform vec3 u_env_block_light;
 uniform float u_env_sky_light;
 
+uniform float u_skylight_intensity;
+
 void main() {
     vec4 position = u_projview * u_model * vec4(v_position, 1.0);
 
     vec3 block_light = u_env_block_light;
-    vec3 sky_light = u_sky_light_color * u_env_sky_light;
+    vec3 sky_light = u_sky_light_color * u_env_sky_light * u_skylight_intensity;
     vec3 ambient_floor = vec3(0.05);
 
     vec3 combined_light = block_light + sky_light + ambient_floor;

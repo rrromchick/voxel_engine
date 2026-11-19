@@ -42,6 +42,8 @@ struct Database {
     bool save_player(const PlayerData &player);
     bool load_player(uint32_t id, PlayerData &out_player);
 
+    void save_world_time(float time);
+    float load_world_time(float default_time);
 private:
     sqlite3 *db = nullptr;
 };

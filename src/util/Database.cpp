@@ -37,7 +37,50 @@ bool Database::init() {
         return false;
     }
 
+    const char *create_state_table_sql =
+        "CREATE TABLE IF NOT EXISTS world_state ("
+        "key TEXT PRIMARY KEY,"
+        "value REAL NOT NULL"
+        ");";
+
+    if (sqlite3_exec(db, create_state_table_sql, nullptr, nullptr, &err_msg) != SQLITE_OK) {
+        std::cerr << "[DB Error] Failed to create world_state table: " << err_msg << std::endl;
+        sqlite3_free(err_msg);
+        return false;
+    }
+
     return true;
+}
+
+void Database::save_world_time(float time) {
+    if (!db) return;
+
+    const char *sql = "INSERT OR REPLACE INTO world_state (key, value) VALUES ('world_time', ?);";
+    sqlite3_stmt *stmt = nullptr;
+
+    if (sqlite3_prepare_v2(db, sql, -1, &stmt, nullptr) == SQLITE_OK) {
+        sqlite3_bind_double(stmt, 1, static_cast<double>(time));
+        if (sqlite3_step(stmt) != SQLITE_DONE) {
+            std::cerr << "[DB Error] Failed to save world time: " << sqlite3_errmsg(db) << std::endl;
+        }
+    }
+    sqlite3_finalize(stmt);
+}
+
+float Database::load_world_time(float default_time) {
+    if (!db) return default_time;
+
+    const char *sql = "SELECT value FROM world_state WHERE key = 'world_time';";
+    sqlite3_stmt *stmt = nullptr;
+    float time = default_time;
+
+    if (sqlite3_prepare_v2(db, sql, -1, &stmt, nullptr) == SQLITE_OK) {
+        if (sqlite3_step(stmt) == SQLITE_ROW) {
+            time = static_cast<float>(sqlite3_column_double(stmt, 0));
+        }
+    }
+    sqlite3_finalize(stmt);
+    return time;
 }
 
 bool Database::register_user(const std::string &username, const std::string &password_hash, uint32_t &out_id) {

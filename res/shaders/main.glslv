@@ -12,10 +12,12 @@ uniform mat4 u_projview;
 uniform vec3 u_sky_light_color;
 uniform float u_gamma;
 
+uniform float u_skylight_intensity;
+
 void main() {
 	vec4 position = u_projview * u_model * vec4(v_position, 1.0);
 	vec3 block_light = v_light.rgb;
-	vec3 sky_light = u_sky_light_color * v_light.a;
+	vec3 sky_light = u_sky_light_color * v_light.a * u_skylight_intensity;
 
 	vec3 ambient_floor = vec3(0.05);
 	vec3 combined_light = block_light + sky_light + ambient_floor;

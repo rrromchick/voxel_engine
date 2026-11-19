@@ -38,9 +38,19 @@ struct ChunkPosHash {
     }
 };
 
+struct Vec3iHash {
+    std::size_t operator()(const glm::ivec3 &v) const {
+        std::size_t h1 = std::hash<int>{}(v.x);
+        std::size_t h2 = std::hash<int>{}(v.y);
+        std::size_t h3 = std::hash<int>{}(v.z);
+        return h1 ^ (h2 << 1) ^ (h3 << 2);
+    }
+};
+
 struct Level {
     std::unordered_map<ChunkPos, std::unique_ptr<Chunk>, ChunkPosHash> chunks;
     std::unordered_map<ChunkPos, std::unique_ptr<Mesh>, ChunkPosHash> meshes;
+    std::unordered_map<glm::ivec3, uint8_t, Vec3iHash> pending_block_modifies;
 
     Level() = default;
     ~Level() = default;

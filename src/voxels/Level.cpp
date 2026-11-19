@@ -76,6 +76,28 @@ void Level::ensure_loaded_around(int cx, int cy, int cz, int radius, WorldFiles 
                         chunk->modified = true;
                     }
 
+                    for (auto it = pending_block_modifies.begin(); it != pending_block_modifies.end(); ) {
+                        glm::ivec3 global_pos = it->first;
+
+                        auto bcx = static_cast<int>(std::floor(static_cast<float>(global_pos.x) / Chunk::WIDTH));
+                        auto bcy = static_cast<int>(std::floor(static_cast<float>(global_pos.y) / Chunk::HEIGHT));
+                        auto bcz = static_cast<int>(std::floor(static_cast<float>(global_pos.z) / Chunk::DEPTH));
+                        
+                        if (bcx == x && bcy == y && bcz == z) {
+                            int lx = (global_pos.x % Chunk::WIDTH + Chunk::WIDTH) % Chunk::WIDTH;
+                            int ly = (global_pos.y % Chunk::HEIGHT + Chunk::HEIGHT) % Chunk::HEIGHT;
+                            int lz = (global_pos.z % Chunk::DEPTH + Chunk::DEPTH) % Chunk::DEPTH;
+                            
+                            int index = (ly * Chunk::DEPTH + lz) * Chunk::WIDTH + lx;
+                            chunk->voxels[index].id = it->second;
+                            
+                            it = pending_block_modifies.erase(it);
+                        } else {
+                            ++it;
+                        }
+                    }
+
+
                     chunks[pos] = std::move(chunk);
 
                     for (int oy = -1; oy <= 1; oy++) {

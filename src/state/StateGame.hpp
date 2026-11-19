@@ -49,6 +49,8 @@ private:
     bool has_spawned = false;
     bool login_rejected = false;
 
+    float client_world_time = 0.0f;
+
     float cam_x = 0.0f, cam_y = 0.0f;
     float player_speed = 4.0f;
     float block_action_cooldown = 0.0f;

@@ -108,6 +108,27 @@ static bool init_assets() {
     global.entity_shader = Shader::load("res/shaders/entity.glslv", "res/shaders/main.glslf");
     if (!global.entity_shader) return false;
 
+    global.sky_shader = Shader::load("res/shaders/sky.glslv", "res/shaders/sky.glslf");
+    if (!global.sky_shader) return false;
+
+    std::vector<float> sky_box_vertices = {
+        -1.0f,  1.0f, -1.0f,   -1.0f, -1.0f, -1.0f,    1.0f, -1.0f, -1.0f,
+         1.0f, -1.0f, -1.0f,    1.0f,  1.0f, -1.0f,   -1.0f,  1.0f, -1.0f,
+        -1.0f, -1.0f,  1.0f,   -1.0f, -1.0f, -1.0f,   -1.0f,  1.0f, -1.0f,
+        -1.0f,  1.0f,  1.0f,   -1.0f, -1.0f,  1.0f,   -1.0f,  1.0f, -1.0f,
+         1.0f, -1.0f, -1.0f,    1.0f, -1.0f,  1.0f,    1.0f,  1.0f,  1.0f,
+         1.0f,  1.0f,  1.0f,    1.0f,  1.0f, -1.0f,    1.0f, -1.0f, -1.0f,
+        -1.0f, -1.0f,  1.0f,    1.0f, -1.0f,  1.0f,    1.0f,  1.0f,  1.0f,
+         1.0f,  1.0f,  1.0f,   -1.0f,  1.0f,  1.0f,   -1.0f, -1.0f,  1.0f,
+        -1.0f,  1.0f, -1.0f,    1.0f,  1.0f, -1.0f,    1.0f,  1.0f,  1.0f,
+         1.0f,  1.0f,  1.0f,   -1.0f,  1.0f,  1.0f,   -1.0f,  1.0f, -1.0f,
+        -1.0f, -1.0f, -1.0f,   -1.0f, -1.0f,  1.0f,    1.0f, -1.0f,  1.0f,
+         1.0f, -1.0f,  1.0f,    1.0f, -1.0f, -1.0f,   -1.0f, -1.0f, -1.0f
+    };
+
+    std::vector<int> sky_attrs = { 3, 0, 0 };
+    global.sky_mesh = std::make_unique<Mesh>(sky_box_vertices, sky_attrs);
+
     global.texture = std::make_unique<Texture>("res/images/texture_atlas.png");
     if (!global.texture) return false;
 
@@ -381,38 +402,42 @@ void StateGame::process_network_packets() {
                 auto block_id = packet.read<uint8_t>();
 
                 if (global.ecs->level) {
-                    global.ecs->level->set(x, y, z, block_id);
+                    bool success = global.ecs->level->set_voxel(x, y, z, block_id);
 
-                    int cx = static_cast<int>(std::floor(static_cast<float>(x) / Chunk::WIDTH));
-                    int cy = static_cast<int>(std::floor(static_cast<float>(y) / Chunk::HEIGHT));
-                    int cz = static_cast<int>(std::floor(static_cast<float>(z) / Chunk::DEPTH));
+                    if (!success) {
+                        global.ecs->level->pending_block_modifies[glm::ivec3(x, y, z)] = block_id;
+                    } else {
+                        int cx = static_cast<int>(std::floor(static_cast<float>(x) / Chunk::WIDTH));
+                        int cy = static_cast<int>(std::floor(static_cast<float>(y) / Chunk::HEIGHT));
+                        int cz = static_cast<int>(std::floor(static_cast<float>(z) / Chunk::DEPTH));
 
-                    int lx = (x % Chunk::WIDTH + Chunk::WIDTH) % Chunk::WIDTH;
-                    int ly = (y % Chunk::HEIGHT + Chunk::HEIGHT) % Chunk::HEIGHT;
-                    int lz = (z % Chunk::DEPTH + Chunk::DEPTH) % Chunk::DEPTH;
+                        int lx = (x % Chunk::WIDTH + Chunk::WIDTH) % Chunk::WIDTH;
+                        int ly = (y % Chunk::HEIGHT + Chunk::HEIGHT) % Chunk::HEIGHT;
+                        int lz = (z % Chunk::DEPTH + Chunk::DEPTH) % Chunk::DEPTH;
 
-                    auto* central_chunk = global.ecs->level->get_chunk(cx, cy, cz);
-                    if (central_chunk) {
-                        central_chunk->modified = true;
-                    }
-
-                    auto invalidate_neighbor = [&](int ox, int oy, int oz) {
-                        auto* n_chunk = global.ecs->level->get_chunk(cx + ox, cy + oy, cz + oz);
-                        if (n_chunk) {
-                            n_chunk->modified = true;
+                        auto* central_chunk = global.ecs->level->get_chunk(cx, cy, cz);
+                        if (central_chunk) {
+                            central_chunk->modified = true;
                         }
-                    };
 
-                    if (lx == 0) invalidate_neighbor(-1, 0, 0);
-                    if (lx == Chunk::WIDTH - 1) invalidate_neighbor(1, 0, 0);
-                    if (ly == 0) invalidate_neighbor(0, -1, 0);
-                    if (ly == Chunk::HEIGHT - 1) invalidate_neighbor(0, 1, 0);
-                    if (lz == 0) invalidate_neighbor(0, 0, -1);
-                    if (lz == Chunk::DEPTH - 1) invalidate_neighbor(0, 0, 1);
+                        auto invalidate_neighbor = [&](int ox, int oy, int oz) {
+                            auto* n_chunk = global.ecs->level->get_chunk(cx + ox, cy + oy, cz + oz);
+                            if (n_chunk) {
+                                n_chunk->modified = true;
+                            }
+                        };
 
-                    if (global.lighting) {
-                        global.lighting->on_block_set(x, y, z, block_id);
-                        global.lighting->solve();
+                        if (lx == 0) invalidate_neighbor(-1, 0, 0);
+                        if (lx == Chunk::WIDTH - 1) invalidate_neighbor(1, 0, 0);
+                        if (ly == 0) invalidate_neighbor(0, -1, 0);
+                        if (ly == Chunk::HEIGHT - 1) invalidate_neighbor(0, 1, 0);
+                        if (lz == 0) invalidate_neighbor(0, 0, -1);
+                        if (lz == Chunk::DEPTH - 1) invalidate_neighbor(0, 0, 1);
+
+                        if (global.lighting) {
+                            global.lighting->on_block_set(x, y, z, block_id);
+                            global.lighting->solve();
+                        }
                     }
                 }
 
@@ -445,6 +470,16 @@ void StateGame::process_network_packets() {
                 }
                 break;
             }
+            case PacketType::TimeSync: {
+                float exact_server_time = packet.read<float>();
+
+                if (std::abs(client_world_time - exact_server_time) > 1000.0f) {
+                    client_world_time = exact_server_time;
+                } else {
+                    client_world_time = glm::mix(client_world_time, exact_server_time, 0.3f);
+                }
+                break;
+            }
             default:
                 break;
         }
@@ -453,6 +488,33 @@ void StateGame::process_network_packets() {
 
 void StateGame::render() {
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+    float time_angle = (client_world_time / 24000.0f) * glm::two_pi<float>();
+    glm::vec3 sun_direction = glm::normalize(glm::vec3(
+        glm::cos(time_angle),
+        glm::sin(time_angle),
+        0.0f
+    ));
+
+    glDisable(GL_DEPTH_TEST);
+    glDepthMask(GL_FALSE);
+
+    global.sky_shader->use();
+    global.sky_shader->uniform_matrix("u_view", camera->get_view());
+    global.sky_shader->uniform_matrix("u_proj", camera->get_projection());
+    global.sky_shader->uniform_3f("u_sun_dir", sun_direction.x, sun_direction.y, sun_direction.z);
+    global.sky_shader->uniform_1f("u_time", client_world_time);
+
+    if (global.sky_mesh) global.sky_mesh->draw(GL_TRIANGLES);
+    
+    glEnable(GL_DEPTH_TEST);
+    glDepthMask(GL_TRUE);
+
+    global.shader->use();
+    float intensity = glm::clamp(sun_direction.y * 1.5f + 0.1f, 0.05f, 1.0f);
+    global.shader->uniform_1f("u_skylight_intensity", intensity);
     
     global.shader->use();
     global.shader->uniform_matrix("u_projview", camera->get_projection() * camera->get_view());
@@ -479,6 +541,7 @@ void StateGame::render() {
     global.entity_shader->uniform_matrix("u_projview", camera->get_projection() * camera->get_view());
     global.entity_shader->uniform_1f("u_gamma", 2.2f);
     global.entity_shader->uniform_3f("u_sky_light_color", 0.2f, 0.3f, 0.4f);
+    global.entity_shader->uniform_1f("u_skylight_intensity", intensity);
 
     for (std::size_t i = 0; i < global.ecs->size; i++) {
         auto current_id = static_cast<EntityId>(i);

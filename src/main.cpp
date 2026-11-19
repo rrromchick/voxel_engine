@@ -45,6 +45,9 @@ struct ChunkSaveTask {
 };
 static std::vector<ChunkSaveTask> save_queue;
 
+static float server_world_time = 12000.0f;
+constexpr float TIME_SPEED = 20.0f;
+
 static void save_player_session(uint32_t entity_id, ECS::Object &player_entity) {
     if (!player_entity.has<TransformComponent>() || !player_entity.has<HealthComponent>()) return;
 
@@ -138,33 +141,6 @@ static void handle_signal(int signal) {
     }
 }
 
-#ifdef _WIN32
-#include <windows.h>
-
-static BOOL WINAPI handle_windows_ctrl(DWORD ctrl_type) {
-    if (ctrl_type == CTRL_C_EVENT || ctrl_type == CTRL_CLOSE_EVENT) {
-        std::cout << "\n[Server] OS exit event detected. Capturing world delta state...\n";
-        server_running = false;
-
-        if (global.ecs && global.ecs->level) {
-            for (std::size_t i = 0; i < global.ecs->size; i++) {
-                ECS::Object obj { global.ecs.get(), static_cast<EntityId>(i) };
-                if (obj.is_valid() && obj.has<TransformComponent>() && obj.has<HealthComponent>()) {
-                    save_player_session(static_cast<uint32_t>(obj.id), obj);
-                }
-            }
-            trigger_async_save(true);
-        }
-        
-        save_cv.notify_one();
-
-        std::this_thread::sleep_for(std::chrono::milliseconds(950));
-        return TRUE;
-    }
-    return FALSE;
-}
-#endif
-
 static void save_all_chunks_and_players() {
     if (global.ecs) {
         for (std::size_t i = 0; i < global.ecs->size; i++) {
@@ -176,10 +152,29 @@ static void save_all_chunks_and_players() {
         }
     }
 
+    server_db.save_world_time(server_world_time);
+
     std::cout << "[Server] Creating final thread-safe snapshot of all modified chunks...\n";
     trigger_async_save(true); 
 }
 
+#ifdef _WIN32
+#include <windows.h>
+
+static BOOL WINAPI handle_windows_ctrl(DWORD ctrl_type) {
+    if (ctrl_type == CTRL_C_EVENT || ctrl_type == CTRL_CLOSE_EVENT) {
+        std::cout << "\n[Server] OS exit event detected. Capturing world delta state...\n";
+        server_running = false;
+        
+        save_all_chunks_and_players();
+        save_cv.notify_one();
+
+        std::this_thread::sleep_for(std::chrono::milliseconds(949));
+        return TRUE;
+    }
+    return FALSE;
+}
+#endif
 
 static void setup_server_definitions() {
     global.blocks[BlockId::AIR] = std::make_unique<Block>(BlockId::AIR, 0);
@@ -523,6 +518,7 @@ void process_client_packet(const std::shared_ptr<Connection> &client, Packet &pa
             for (uint8_t byte : inv_raw) {
                 spawn_response.write<uint8_t>(byte);
             }
+            spawn_response.write<float>(server_world_time);
             client->send_packet(spawn_response);
 
             Packet broadcast_spawn(PacketType::EntitySpawn);
@@ -753,6 +749,9 @@ int main(int argc, char *argv[]) {
 
     if (server_db.init()) {
         std::cout << "[Server] Database initialized successfully.\n";
+        
+        server_world_time = server_db.load_world_time(12000.0f);
+        std::cout << "[Server] World time loaded from disk:" << server_world_time << std::endl;
     } else {
         std::cerr << "[Server] Failed to initialize database!\n";
     }
@@ -841,6 +840,21 @@ int main(int argc, char *argv[]) {
 
             dt = std::min<float>(dt, 0.05f);
 
+            server_world_time += TIME_SPEED * dt;
+            if (server_world_time >= 24000.0f) {
+                server_world_time -= 24000.0f;
+            }
+
+            static int time_sync_cooldown = 0;
+            time_sync_cooldown++;
+            if (time_sync_cooldown >= 20) {
+                time_sync_cooldown = 0;
+
+                Packet time_packet(PacketType::TimeSync);
+                time_packet.write<float>(server_world_time);
+                broadcast_packet_all(time_packet);
+            }
+
             for (auto it = knockback_timers.begin(); it != knockback_timers.end(); ) {
                 it->second -= dt;
                 if (it->second <= 0.0f) {
@@ -910,6 +924,7 @@ int main(int argc, char *argv[]) {
                     }
                 }
 
+                server_db.save_world_time(server_world_time);
                 trigger_async_save(false);
             }
             std::this_thread::sleep_for(std::chrono::milliseconds(1));
