@@ -35,6 +35,8 @@ constexpr std::array<int, 2> attrs = { 2, 0 };
 
 static float block_action_cooldown = 0.0f;
 
+static constexpr int RENDER_DISTANCE = 2;
+
 static void setup_definitions() {
     global.blocks[BlockId::AIR] = std::make_unique<Block>(BlockId::AIR, 0);
     global.blocks[BlockId::AIR]->draw_group = 1;
@@ -283,7 +285,7 @@ void StateGame::process_network_packets() {
 
                     player = Player(global.ecs.get(), static_cast<EntityId>(spawned_id));
                     if (!player.has<TransformComponent>()) player.add<TransformComponent>();
-                    if (!player.has<TransformComponent>()) {
+                    if (!player.has<HitboxComponent>()) {
                         auto &hb = player.add<HitboxComponent>();
                         hb.halfsize = glm::vec3(0.3f, 0.9f, 0.3f);
                     }
@@ -489,8 +491,6 @@ void StateGame::process_network_packets() {
 void StateGame::render() {
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-
     float time_angle = (client_world_time / 24000.0f) * glm::two_pi<float>();
     glm::vec3 sun_direction = glm::normalize(glm::vec3(
         glm::cos(time_angle),
@@ -521,10 +521,21 @@ void StateGame::render() {
     global.shader->uniform_1f("u_gamma", 2.2f);
     global.shader->uniform_3f("u_sky_light_color", 0.2f, 0.3f, 0.4f);
 
+    const auto cam_cx = static_cast<int>(std::floor(camera->position.x / Chunk::WIDTH));
+    const auto cam_cy = static_cast<int>(std::floor(camera->position.y / Chunk::HEIGHT));
+    const auto cam_cz = static_cast<int>(std::floor(camera->position.z / Chunk::DEPTH));
+    
     global.texture->bind();
     auto *level = global.ecs->level.get();
     for (auto &[pos, chunk] : level->chunks) {
         if (!chunk) continue;
+
+        if (std::abs(pos.x - cam_cx) > RENDER_DISTANCE || 
+            std::abs(pos.y - cam_cy) > RENDER_DISTANCE ||
+            std::abs(pos.z - cam_cz) > RENDER_DISTANCE) {
+            continue;
+        }
+
         auto mesh_it = level->meshes.find(pos);
         if (mesh_it == level->meshes.end() || !mesh_it->second) continue;
 
@@ -559,13 +570,13 @@ void StateGame::render() {
 
         float dt = static_cast<float>(global.window->frame_delta) / 1'000'000'000.0f;
 
-        Animator &animator = entity_animators[current_id];
+        auto &animator = entity_animators[current_id];
         animator.update(velocity, dt);
-        LimbAngles limbs = animator.get_limb_angles();
+        auto limbs = animator.get_limb_angles();
 
-        int px = static_cast<int>(std::floor(trans_comp.position.x));
-        int py = static_cast<int>(std::floor(trans_comp.position.y + 0.5f));
-        int pz = static_cast<int>(std::floor(trans_comp.position.z));
+        auto px = static_cast<int>(std::floor(trans_comp.position.x));
+        auto py = static_cast<int>(std::floor(trans_comp.position.y + 0.5f));
+        auto pz = static_cast<int>(std::floor(trans_comp.position.z));
 
         glm::vec3 block_light(0.0f);
         float sky_light = 1.0f;
@@ -732,7 +743,7 @@ void StateGame::update() {
 
     level->ensure_loaded_around(
         current_chunk_x, current_chunk_y, current_chunk_z,
-        2, global.world_files.get()
+        RENDER_DISTANCE, global.world_files.get()
     );
 
     level->decorate_visible(player_positions);
