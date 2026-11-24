@@ -486,7 +486,7 @@ void process_client_packet(const std::shared_ptr<Connection> &client, Packet &pa
             for (const auto &srv : global.network->get_servers()) {
                 for (const auto &other_client : srv->get_clients()) {
                     if (other_client != client && other_client->get_user_data() != nullptr) {
-                        uint32_t existing_id = static_cast<uint32_t>(reinterpret_cast<uintptr_t>(other_client->get_user_data())) - 1;
+                        auto existing_id = static_cast<uint32_t>(reinterpret_cast<uintptr_t>(other_client->get_user_data())) - 1;
                         ECS::Object existing_obj { global.ecs.get(), static_cast<EntityId>(existing_id) };
 
                         if (existing_obj.has<TransformComponent>()) {
@@ -539,7 +539,7 @@ void process_client_packet(const std::shared_ptr<Connection> &client, Packet &pa
         case PacketType::PlayerState: {
             if (client->get_user_data() == nullptr) break;
 
-            uint32_t player_id = static_cast<uint32_t>(reinterpret_cast<uintptr_t>(client->get_user_data())) - 1;
+            auto player_id = static_cast<uint32_t>(reinterpret_cast<uintptr_t>(client->get_user_data())) - 1;
 
             ECS::Object obj { global.ecs.get(), static_cast<EntityId>(player_id) };
             if (obj.has<PlayerInputComponent>() && obj.has<HitboxComponent>() && obj.has<TransformComponent>()) {
@@ -624,7 +624,7 @@ void process_client_packet(const std::shared_ptr<Connection> &client, Packet &pa
                 broadcast_packet_all(packet_modify);
             }
 
-            uint32_t player_id = static_cast<uint32_t>(reinterpret_cast<uintptr_t>(client->get_user_data())) - 1;
+            auto player_id = static_cast<uint32_t>(reinterpret_cast<uintptr_t>(client->get_user_data())) - 1;
             ECS::Object player_obj { global.ecs.get(), static_cast<EntityId>(player_id) };
             if (player_obj.is_valid() && player_obj.has<InventoryComponent>()) {
                 auto &inv = player_obj.get<InventoryComponent>();
@@ -705,7 +705,7 @@ void process_client_packet(const std::shared_ptr<Connection> &client, Packet &pa
         }
         case PacketType::InventorySync: {
             if (client->get_user_data() == nullptr) break;
-            uint32_t player_id = static_cast<uint32_t>(reinterpret_cast<uintptr_t>(client->get_user_data())) - 1;
+            auto player_id = static_cast<uint32_t>(reinterpret_cast<uintptr_t>(client->get_user_data())) - 1;
             ECS::Object player_obj { global.ecs.get(), static_cast<EntityId>(player_id) };
             if (player_obj.is_valid() && player_obj.has<InventoryComponent>()) {
                 uint16_t size = packet.read<uint16_t>();
@@ -721,6 +721,7 @@ void process_client_packet(const std::shared_ptr<Connection> &client, Packet &pa
             break;
     }
 }
+
 int main(int argc, char *argv[]) {
 #ifdef _WIN32
     WSADATA wsa;
