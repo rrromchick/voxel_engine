@@ -85,6 +85,29 @@ target_link_libraries(engine_core PUBLIC
     $<$<PLATFORM_ID:Windows>:ws2_32>
 )
 
+include(FetchContent)
+set(gtest_force_shared_crt ON CACHE BOOL "" FORCE) 
+FetchContent_Declare(
+    googletest
+    URL https://github.com/google/googletest/archive/refs/tags/v1.15.2.zip
+)
+FetchContent_MakeAvailable(googletest)
+
+enable_testing()
+
+add_executable(voxel_tests
+    tests/test_lightmap.cpp
+    tests/test_lighting.cpp
+)
+
+target_link_libraries(voxel_tests PRIVATE
+    engine_core
+    GTest::gtest_main
+)
+
+include(GoogleTest)
+gtest_discover_tests(voxel_tests)
+
 if(MSVC)
     target_compile_options(engine_core PRIVATE /Zc:__cplusplus /permissive- /Zi /Oy-)
     add_link_options(/DEBUG)
